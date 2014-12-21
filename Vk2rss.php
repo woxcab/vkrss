@@ -50,7 +50,7 @@ class Vk2rss {
 
     for ($i = 1; $i<=count($wall->response)-1; $i++) {
       $newItem = $feed->createNewItem();
-      $newItem->setLink("http://vk.com/wall{$owner_id}_{$wall->response[$i]->id}");
+      $newItem->setLink("http://vk.com/wall{$wall->response[$i]->to_id}_{$wall->response[$i]->id}");
       $newItem->setDate($wall->response[$i]->date);
       $description = $wall->response[$i]->text;
 
