@@ -12,7 +12,8 @@ class Vk2rss {
   public $url = 'http://api.vk.com/method/wall.get', // url для получения записей со стены
     $owner_id, // идентификатор пользователя или сообщества, со стены которого необходимо получить записи // идентификатор сообщества необходимо указывать со знаком "-"
     $domain, // короткий адрес пользователя или сообщества
-    $count = 10; // количество записей, которое необходимо получить (но не более 100)
+    $count = 10, // количество записей, которое необходимо получить (но не более 100)
+	$offset; // смещение, необходимое для выборки определенного подмножества записей. 
 
   // Получаем записи со стены
   protected function getContent(){
@@ -23,6 +24,9 @@ class Vk2rss {
       $url .= 'owner_id='.$this->owner_id;
     }
     $url .= '&count='.$this->count;
+	if (!empty($this->offset)) {
+		$url .= '&offset='.$this->offset;
+	}
     $myCurl = curl_init();
     curl_setopt_array($myCurl, array(
       CURLOPT_URL => $url,
@@ -50,12 +54,17 @@ class Vk2rss {
 
     for ($i = 1; $i<=count($wall->response)-1; $i++) {
       $newItem = $feed->createNewItem();
-      $newItem->setLink("http://vk.com/wall{$wall->response[$i]->to_id}_{$wall->response[$i]->id}");
-      $newItem->setDate($wall->response[$i]->date);
-      $description = $wall->response[$i]->text;
+	  $res = $wall->response[$i];
+	  $title = explode( ' ', $res->text );
+	  $title = array_slice( $title, 0, 5 );
+	  $title = implode( ' ', $title ).'...';
+      $newItem->setLink("http://vk.com/wall{$res->to_id}_{$res->id}");
+      $newItem->setTitle($title);
+      $newItem->setDate($res->date);
+      $description = $res->text;
 
-      if (isset($wall->response[$i]->attachments)) {
-        foreach ($wall->response[$i]->attachments as $attachment) {
+      if (isset($res->attachments)) {
+        foreach ($res->attachments as $attachment) {
           switch ($attachment->type) {
             case 'photo': {
               $description .= "<br><img src='{$attachment->photo->src_big}'/>";
