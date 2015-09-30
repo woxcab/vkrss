@@ -2,9 +2,8 @@
 
 /*
  * @Description: vk.com Wall to RSS Class
- * @Author: tsarbas
- * @Website: http://sarbas.org
- *
+ * @Author: tsarbas 
+ * @Author: kadukmm <nikolay.kaduk@gmail.com>
  */
 
 class Vk2rss {
