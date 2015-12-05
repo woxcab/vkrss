@@ -3,8 +3,9 @@
 /**
  * @Description: vk.com Wall to RSS Class
  *
- * Initial creator
+ * Initial creators
  * @author tsarbas
+ * @author: kadukmm <nikolay.kaduk@gmail.com>
  **/
 
  /**
@@ -29,11 +30,11 @@ class Vk2rss
     /**
      * Максимальное количество символов в заголовке поста
      */
-    const MAX_TITLE_LENGTH = 80; //
+    const MAX_TITLE_LENGTH = 80;
     /**
      * Второй и последующие абзацы используются для заголовка, только если содержат больше стольки символов
      */
-    const MIN_PARAGRAPH_LENGTH_FOR_TITLE = 30; //
+    const MIN_PARAGRAPH_LENGTH_FOR_TITLE = 30;
 
     /**
      * url для получения записей со стены
@@ -46,7 +47,7 @@ class Vk2rss
     /**
      * @var string   короткий адрес пользователя или сообщества
      */
-    public $domain; //
+    public $domain;
     /**
      * @var int   количество записей, которое необходимо получить (но не более 100)
      */
