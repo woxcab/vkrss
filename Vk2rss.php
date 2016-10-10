@@ -75,7 +75,7 @@ class Vk2rss
         } elseif (!empty($this->owner_id)) {
             $url .= 'owner_id=' . $this->owner_id;
         }
-        $url .= '&count=' . $this->count;
+        $url .= '&count=' . $this->count . '&extended=1';
         $myCurl = curl_init();
         curl_setopt_array($myCurl, array(
             CURLOPT_URL => $url,
@@ -131,6 +131,21 @@ class Vk2rss
         return $fullTitle;
     }
 
+    public function __construct($id, $count = 20, $include = NULL, $exclude = NULL)
+    {
+        if (is_numeric($id) && is_int(abs($id))) {
+            $this->owner_id = (int)$id;
+            $this->domain = NULL;
+        } else {
+            $this->owner_id = NULL;
+            $this->domain = $id;
+        }
+        $this->count = $count;
+        $this->include = $include;
+        $this->exclude = $exclude;
+
+    }
+
     /**
      * Generate RSS feed
      */
@@ -138,18 +153,37 @@ class Vk2rss
     {
         include('FeedWriter.php');
         include('FeedItem.php');
+        $response = $this->getContent();
+        if (property_exists($response, 'error'))
+        {
+            http_response_code(400);
+            die('Error ' . $response->error->error_code . ': ' . $response->error->error_msg);
+        }
+        $response = $response->response;
         $feed = new FeedWriter(RSS2);
-        $wall = $this->getContent();
-        $title = !empty($this->domain) ? $this->domain : $this->owner_id;
+        if ($response->profiles)
+        {
+            $profile = $response->profiles[0];
+            $title = $profile->first_name . ' ' . $profile->last_name;
+            $description = 'Wall of user ' . $profile->first_name . ' ' . $profile->last_name;
+        }
+        else
+        {
+            $group = $response->groups[0];
+            $title = $group->name;
+            $description = 'Wall of group ' . $group->name;
+        }
+        $id = $this->domain ? $this->domain :
+            ($this->owner_id > 0 ? 'id' . $this->owner_id : 'club' . abs($this->owner_id));
 
-        $feed->setTitle('vk.com/' . $title);
-        $feed->setLink('http://vk.com/' . $title);
-        $feed->setDescription('wall from vk.com/' . $title);
+        $feed->setTitle($title);
+        $feed->setDescription($description);
+        $feed->setLink('https://vk.com/' . $id);
 
         $feed->setChannelElement('language', 'ru-ru');
         $feed->setChannelElement('pubDate', date(DATE_RSS, time()));
 
-        foreach (array_slice($wall->response, 1) as $post) {
+        foreach (array_slice($response->wall, 1) as $post) {
             $newItem = $feed->createNewItem();
             $newItem->setLink("http://vk.com/wall{$post->to_id}_{$post->id}");
             $newItem->setDate($post->date);
