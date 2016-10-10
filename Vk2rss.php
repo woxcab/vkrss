@@ -133,10 +133,27 @@ class Vk2rss
 
     public function __construct($id, $count = 20, $include = NULL, $exclude = NULL)
     {
-        if (is_numeric($id) && is_int(abs($id))) {
+        if (empty($id)) {
+            http_response_code(400);
+            die("Valid identifier of user or group is absent");
+        }
+
+        if (strcmp(substr($id, 0, 2), 'id') === 0 && ctype_digit(substr($id, 2)))
+        {
+            $this->owner_id = (int)substr($id, 2);
+            $this->domain = NULL;
+        }
+        elseif (strcmp(substr($id, 0, 4), 'club') === 0 && ctype_digit(substr($id, 4)))
+        {
+            $this->owner_id = -(int)substr($id, 4);
+            $this->domain = NULL;
+        }
+        elseif (is_numeric($id) && is_int(abs($id)))
+        {
             $this->owner_id = (int)$id;
             $this->domain = NULL;
-        } else {
+        } else
+            {
             $this->owner_id = NULL;
             $this->domain = $id;
         }
