@@ -8,7 +8,7 @@
  * @author: kadukmm <nikolay.kaduk@gmail.com>
  **/
 
- /**
+/**
  * Additional features:
  *   including & excluding conditions,
  *   title generation,
@@ -16,7 +16,6 @@
  *   hashtags extractor to 'category' tags
  * @author woxcab
  **/
-
 class Vk2rss
 {
     /**
@@ -138,22 +137,16 @@ class Vk2rss
             die("Valid identifier of user or group is absent");
         }
 
-        if (strcmp(substr($id, 0, 2), 'id') === 0 && ctype_digit(substr($id, 2)))
-        {
+        if (strcmp(substr($id, 0, 2), 'id') === 0 && ctype_digit(substr($id, 2))) {
             $this->owner_id = (int)substr($id, 2);
             $this->domain = NULL;
-        }
-        elseif (strcmp(substr($id, 0, 4), 'club') === 0 && ctype_digit(substr($id, 4)))
-        {
+        } elseif (strcmp(substr($id, 0, 4), 'club') === 0 && ctype_digit(substr($id, 4))) {
             $this->owner_id = -(int)substr($id, 4);
             $this->domain = NULL;
-        }
-        elseif (is_numeric($id) && is_int(abs($id)))
-        {
+        } elseif (is_numeric($id) && is_int(abs($id))) {
             $this->owner_id = (int)$id;
             $this->domain = NULL;
-        } else
-            {
+        } else {
             $this->owner_id = NULL;
             $this->domain = $id;
         }
@@ -171,21 +164,17 @@ class Vk2rss
         include('FeedWriter.php');
         include('FeedItem.php');
         $response = $this->getContent();
-        if (property_exists($response, 'error'))
-        {
+        if (property_exists($response, 'error')) {
             http_response_code(400);
             die('Error ' . $response->error->error_code . ': ' . $response->error->error_msg);
         }
         $response = $response->response;
         $feed = new FeedWriter(RSS2);
-        if ($response->profiles)
-        {
+        if ($response->profiles) {
             $profile = $response->profiles[0];
             $title = $profile->first_name . ' ' . $profile->last_name;
             $description = 'Wall of user ' . $profile->first_name . ' ' . $profile->last_name;
-        }
-        else
-        {
+        } else {
             $group = $response->groups[0];
             $title = $group->name;
             $description = 'Wall of group ' . $group->name;
