@@ -19,46 +19,46 @@
 class Vk2rss
 {
     /**
-     * Разделитель текстов из разных частей одного поста
+     * Delimiter of text from different parts of post
      */
     const VERTICAL_DELIMITER = ' <br/> ________________ <br/> ';
     /**
-     * Значение заголовка в случае, когда ни в одной части поста нет текста
+     * Default title value when no text in the post
      */
     const EMPTY_TITLE = '[Без текста]';
     /**
-     * Максимальное количество символов в заголовке поста
+     * Maximum title length in symbols
      */
     const MAX_TITLE_LENGTH = 80;
     /**
-     * Второй и последующие абзацы используются для заголовка, только если содержат больше стольки символов
+     * Required minimum number of symbols in second or following paragraphs in order to use its for title
      */
     const MIN_PARAGRAPH_LENGTH_FOR_TITLE = 30;
 
     /**
-     * url для получения записей со стены
+     * URL of API method that returns wall posts
      */
     const API_URL = 'http://api.vk.com/method/wall.get';
     /**
-     * @var int   идентификатор пользователя или сообщества, со стены которого необходимо получить записи // идентификатор сообщества необходимо указывать со знаком "-"
+     * @var int   identifier of user or group which wall going to be extracted
      */
-    public $owner_id;
+    protected $owner_id;
     /**
-     * @var string   короткий адрес пользователя или сообщества
+     * @var string   short address of user or group which wall going to be extracted
      */
-    public $domain;
+    protected $domain;
     /**
-     * @var int   количество записей, которое необходимо получить (но не более 100)
+     * @var int   quantity of last posts from the wall (at most 100)
      */
-    public $count;
+    protected $count;
     /**
-     * @var string   регистронезависимое регулярное выражение, которое должно соответствовать тексту записи
+     * @var string   case insensitive regular expression that have to match text of post
      */
-    public $include;
+    protected $include;
     /**
-     * @var string   регистронезависимое регулярное выражение, которое не должно соответствовать тексту записи
+     * @var string   case insensitive regular expression that have not to match text of post
      */
-    public $exclude;
+    protected $exclude;
 
 
     /**
@@ -98,7 +98,7 @@ class Vk2rss
     }
 
     /**
-     * Generate title from text of post
+     * Generate title using text of post
      *
      * @param $description string   text of post
      * @return string   generated title
@@ -153,11 +153,10 @@ class Vk2rss
         $this->count = $count;
         $this->include = $include;
         $this->exclude = $exclude;
-
     }
 
     /**
-     * Generate RSS feed
+     * Generate RSS feed as output
      */
     public function generateRSS()
     {
