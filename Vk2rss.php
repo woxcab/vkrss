@@ -9,13 +9,185 @@
  **/
 
 /**
- * Additional features:
+ * Refactoring and additional features:
  *   including & excluding conditions,
  *   title generation,
  *   description extraction from attachment
  *   hashtags extractor to 'category' tags
  * @author woxcab
  **/
+
+
+
+/**
+ * Reverse UTF8 string
+ *
+ * @param $str string   source string
+ * @return string   reversed string
+ */
+function utf8_strrev($str)
+{
+    preg_match_all('/./us', $str, $ar);
+    return join('', array_reverse($ar[0]));
+}
+
+
+class ConnectionWrapper
+{
+    /**
+     * States to use file_get_contents function to download data
+     */
+    const BUILTIN_DOWNLOADER = 1;
+    /**
+     * States to use cURL library to download data
+     */
+    const CURL_DOWNLOADER = 2;
+    /**
+     * @var int    way to download data
+     */
+    protected $downloader;
+
+    /**
+     * @var resource   Stream context resource
+     */
+    protected $context;
+    /**
+     * @var resource   cURL resource
+     */
+    protected $curlHandler;
+
+    /**
+     * @var bool   Whether connection is closed
+     */
+    protected $connectionIsClosed;
+
+    protected $lastUrl = null;
+
+    /**
+     * ConnectionWrapper constructor.
+     * @throws Exception   If PHP configuration does not allow to use file_get_contents or cURL to download remote data
+     */
+    public function __construct()
+    {
+        if (ini_get("allow_url_fopen") == 1) {
+            $this->downloader = self::BUILTIN_DOWNLOADER;
+            $this->context = stream_context_create();
+        } elseif (function_exists("curl_init")) {
+            $this->downloader = self::CURL_DOWNLOADER;
+        } else {
+            throw new Exception("PHP configuration does not allow to use file_get_contents or cURL to download remote data", 500);
+        }
+        $this->connectionIsClosed = true;
+    }
+
+    public function __destruct()
+    {
+        $this->closeConnection();
+    }
+
+    /**
+     * Change connector state to be ready to retrieve content
+     */
+    public function openConnection()
+    {
+        switch ($this->downloader) {
+            case self::BUILTIN_DOWNLOADER:
+                break;
+            case self::CURL_DOWNLOADER:
+                $this->curlHandler = curl_init();
+                break;
+        }
+        $this->connectionIsClosed = false;
+    }
+
+    /**
+     * Close opened session and free resources
+     */
+    public function closeConnection()
+    {
+        if (!$this->connectionIsClosed) {
+            switch ($this->downloader) {
+                case self::BUILTIN_DOWNLOADER:
+                    break;
+                case self::CURL_DOWNLOADER:
+                    curl_close($this->curlHandler);
+                    break;
+            }
+            $this->connectionIsClosed = true;
+        }
+    }
+
+    /**
+     * Retrieve content from given URL.
+     *
+     *
+     * @param $url string   URL
+     * @return mixed   Response body or FALSE on failure
+     */
+    public function getContent($url)
+    {
+        $this->lastUrl = $url;
+        switch ($this->downloader) {
+            case self::BUILTIN_DOWNLOADER:
+                $response = file_get_contents($url, false, $this->context);
+                break;
+            case self::CURL_DOWNLOADER:
+                curl_setopt($this->curlHandler, CURLOPT_URL, $url);
+                $response = curl_exec($this->curlHandler);
+                break;
+            default:
+                $response = false;
+        }
+        return $response;
+    }
+
+    /**
+     * @return string|null
+     */
+    public function getLastUrl()
+    {
+        return $this->lastUrl;
+    }
+}
+
+
+class APIError extends Exception {
+    protected $apiErrorCode;
+    protected $requestUrl;
+
+    /**
+     * APIError constructor.
+     *
+     * @param string $message
+     * @param int $api_error_code
+     * @param string $request_url
+     * @param Exception $previous
+     */
+    public function __construct($message, $api_error_code, $request_url, $previous = null)
+    {
+        parent::__construct($message, 400, $previous);
+        $this->apiErrorCode = $api_error_code;
+        $this->requestUrl = $request_url;
+    }
+
+    /**
+     * @return int   API error code
+     */
+    public function getApiErrorCode()
+    {
+        return $this->apiErrorCode;
+    }
+
+    /**
+     * @return string
+     */
+    public function getRequestUrl()
+    {
+        return $this->requestUrl;
+    }
+}
+
+
 class Vk2rss
 {
     /**
@@ -25,7 +197,15 @@ class Vk2rss
     /**
      * Default title value when no text in the post
      */
-    const EMPTY_TITLE = '[Без текста]';
+    const EMPTY_POST_TITLE = '[Без текста]';
+    /**
+     * Prefix of feed description for user wall
+     */
+    const USER_FEED_DESCRIPTION_PREFIX = "Стена пользователя ";
+    /**
+     * Prefix of feed description for group wall
+     */
+    const GROUP_FEED_DESCRIPTION_PREFIX = "Стена группы ";
     /**
      * Maximum title length in symbols
      */
@@ -34,11 +214,11 @@ class Vk2rss
      * Required minimum number of symbols in second or following paragraphs in order to use its for title
      */
     const MIN_PARAGRAPH_LENGTH_FOR_TITLE = 30;
-
     /**
      * URL of API method that returns wall posts
      */
-    const API_URL = 'http://api.vk.com/method/wall.get';
+    const API_BASE_URL = 'https://api.vk.com/method/';
+
     /**
      * @var int   identifier of user or group which wall going to be extracted
      */
@@ -64,37 +244,39 @@ class Vk2rss
     /**
      * Get posts of wall
      *
-     * @return mixed   VK response
+     * @param $connector ConnectionWrapper
+     * @param string $api_method   API method name
+     * @return mixed   Json VK response in appropriate PHP type
+     * @throws Exception   If unsupported API method name is passed or data retrieving is failed
      */
-    protected function getContent()
+    protected function getContent($connector, $api_method)
     {
-        $url = self::API_URL . '?';
-        if (!empty($this->domain)) {
-            $url .= 'domain=' . $this->domain;
-        } elseif (!empty($this->owner_id)) {
-            $url .= 'owner_id=' . $this->owner_id;
+        $url = self::API_BASE_URL . $api_method . '?';
+        switch ($api_method) {
+            case "wall.get":
+                if (!empty($this->domain)) {
+                    $url .= "domain={$this->domain}";
+                } else {
+                    $url .= "owner_id={$this->owner_id}";
+                }
+                $url .= "&count={$this->count}";
+                break;
+            case "users.get":
+                $url .= "fields=first_name,last_name&user_ids=" . (!empty($this->domain) ? $this->domain : $this->owner_id);
+                break;
+            case "groups.getById":
+                $url .= "fields=name&group_id=" . (!empty($this->domain) ? $this->domain : abs($this->owner_id));
+                break;
+            default:
+                throw new Exception("Passed unsupported API method name '${api_method}'", 400);
         }
-        $url .= '&count=' . $this->count . '&extended=1';
-        $myCurl = curl_init();
-        curl_setopt_array($myCurl, array(
-            CURLOPT_URL => $url,
-            CURLOPT_RETURNTRANSFER => true
-        ));
-        $posts = curl_exec($myCurl);
-        curl_close($myCurl);
+        $connector->openConnection();
+        $posts = $connector->getContent($url);
+        $connector->closeConnection();
+        if ($posts === false) {
+            throw new Exception("Failed to get content of URL ${url}", 400);
+        }
         return json_decode($posts);
-    }
-
-    /**
-     * Reverse UTF8 string
-     *
-     * @param $str string   source string
-     * @return string   reversed string
-     */
-    static protected function utf8_strrev($str)
-    {
-        preg_match_all('/./us', $str, $ar);
-        return join('', array_reverse($ar[0]));
     }
 
     /**
@@ -110,7 +292,7 @@ class Vk2rss
         $description = preg_replace('/<(?!br|br\/)[^>]+>/u', '', $description); // remove all tags exclude <br> (but leave all other tags starting with 'br'...)
 
         if (empty($description)) {
-            return self::EMPTY_TITLE;
+            return self::EMPTY_POST_TITLE;
         }
 
         $splitDescription = explode("<br", $description);
@@ -125,7 +307,7 @@ class Vk2rss
         }
         $fullTitle = implode(' ', array_slice($splitDescription, 0, $part));
         if (mb_strlen($fullTitle) > self::MAX_TITLE_LENGTH) {
-            $fullTitle = Vk2rss::utf8_strrev(explode(' ', Vk2rss::utf8_strrev(mb_substr($fullTitle, 0, self::MAX_TITLE_LENGTH)), 2)[1]) . "...";
+            $fullTitle = utf8_strrev(explode(' ', utf8_strrev(mb_substr($fullTitle, 0, self::MAX_TITLE_LENGTH)), 2)[1]) . "...";
         }
         return $fullTitle;
     }
@@ -133,8 +315,7 @@ class Vk2rss
     public function __construct($id, $count = 20, $include = NULL, $exclude = NULL)
     {
         if (empty($id)) {
-            http_response_code(400);
-            die("Valid identifier of user or group is absent");
+            throw new Exception("Invalid identifier of user or group is passed", 400);
         }
 
         if (strcmp(substr($id, 0, 2), 'id') === 0 && ctype_digit(substr($id, 2))) {
@@ -142,6 +323,9 @@ class Vk2rss
             $this->domain = NULL;
         } elseif (strcmp(substr($id, 0, 4), 'club') === 0 && ctype_digit(substr($id, 4))) {
             $this->owner_id = -(int)substr($id, 4);
+            $this->domain = NULL;
+        } elseif (strcmp(substr($id, 0, 6), 'public') === 0 && ctype_digit(substr($id, 6))) {
+            $this->owner_id = -(int)substr($id, 6);
             $this->domain = NULL;
         } elseif (is_numeric($id) && is_int(abs($id))) {
             $this->owner_id = (int)$id;
@@ -162,22 +346,42 @@ class Vk2rss
     {
         include('FeedWriter.php');
         include('FeedItem.php');
-        $response = $this->getContent();
-        if (property_exists($response, 'error')) {
-            http_response_code(400);
-            die('Error ' . $response->error->error_code . ': ' . $response->error->error_msg);
+
+        $connector = new ConnectionWrapper();
+
+        $group_response = $this->getContent($connector, "groups.getById");
+        if (property_exists($group_response, 'error') && $group_response->error->error_code != 100) {
+            throw new APIError($group_response->error->error_msg,
+                $group_response->error->error_code,
+                $connector->getLastUrl());
         }
-        $response = $response->response;
-        $feed = new FeedWriter(RSS2);
-        if ($response->profiles) {
-            $profile = $response->profiles[0];
-            $title = $profile->first_name . ' ' . $profile->last_name;
-            $description = 'Wall of user ' . $profile->first_name . ' ' . $profile->last_name;
-        } else {
-            $group = $response->groups[0];
+        if (!property_exists($group_response, 'error') && !empty($group_response->response)) {
+            $group = $group_response->response[0];
             $title = $group->name;
-            $description = 'Wall of group ' . $group->name;
+            $description = self::GROUP_FEED_DESCRIPTION_PREFIX . $group->name;
+        } else {
+            $user_response = $this->getContent($connector, "users.get");
+            if (property_exists($user_response, 'error')) {
+                throw new APIError($user_response->error->error_msg,
+                    $user_response->error->error_code, $connector->getLastUrl());
+            }
+            if (!empty($user_response->response)) {
+                $profile = $user_response->response[0];
+                $title = $profile->first_name . ' ' . $profile->last_name;
+                $description = self::USER_FEED_DESCRIPTION_PREFIX . $profile->first_name . ' ' . $profile->last_name;
+            } else {
+                throw new Exception("Invalid user or group identifier", 400);
+            }
         }
+
+        $wall_response = $this->getContent($connector, "wall.get");
+        if (property_exists($wall_response, 'error')) {
+            throw new APIError($wall_response->error->error_msg,
+                $wall_response->error->error_code,
+                $connector->getLastUrl());
+        }
+
+        $feed = new FeedWriter(RSS2);
         $id = $this->domain ? $this->domain :
             ($this->owner_id > 0 ? 'id' . $this->owner_id : 'club' . abs($this->owner_id));
 
@@ -188,10 +392,10 @@ class Vk2rss
         $feed->setChannelElement('language', 'ru-ru');
         $feed->setChannelElement('pubDate', date(DATE_RSS, time()));
 
-        foreach (array_slice($response->wall, 1) as $post) {
-            $newItem = $feed->createNewItem();
-            $newItem->setLink("http://vk.com/wall{$post->to_id}_{$post->id}");
-            $newItem->setDate($post->date);
+        foreach (array_slice($wall_response->response, 1) as $post) {
+            $new_item = $feed->createNewItem();
+            $new_item->setLink("http://vk.com/wall{$post->to_id}_{$post->id}");
+            $new_item->setDate($post->date);
             $description = $post->text;
             if (isset($post->copy_text)) { # additional content in re-posts
                 $description .= (empty($description) ? '' : self::VERTICAL_DELIMITER)
@@ -216,9 +420,9 @@ class Vk2rss
                 continue;
             }
 
-            $hashTags = array();
-            $description = preg_replace('/\[[^|]+\|([^\]]+)\]/u', '$1', $description); // remove internal vk links
-            preg_match_all('/#([\d\w_]+)/u', $description, $hashTags);
+            $hash_tags = array();
+            $description = preg_replace('/\[[^|]+\|([^\]]+)\]/u', '$1', $description); // remove internal vk links like [id123|Name]
+            preg_match_all('/#([\d\w_]+)/u', $description, $hash_tags);
 
             if (isset($post->attachments)) {
                 foreach ($post->attachments as $attachment) {
@@ -247,16 +451,17 @@ class Vk2rss
                 }
             }
 
-            $newItem->setDescription($description);
-            $newItem->addElement('title', $this->getTitle($description));
-            $newItem->addElement('guid', $post->id);
+            $new_item->setDescription($description);
+            $new_item->addElement('title', $this->getTitle($description));
+            $new_item->addElement('guid', $post->id);
 
-            foreach ($hashTags[1] as $hashTag) {
-                $newItem->addElement('category', $hashTag);
+            foreach ($hash_tags[1] as $hashTag) {
+                $new_item->addElement('category', $hashTag);
             }
 
-            $feed->addItem($newItem);
+            $feed->addItem($new_item);
         }
+
         $feed->generateFeed();
     }
 
