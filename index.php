@@ -1,4 +1,5 @@
-<?php require('Vk2rss.php');
+<?php
+require_once('Vk2rss.php');
 header("Content-type: text/xml; charset=utf-8");
 
 $id = isset($_GET['id']) ? $_GET['id'] :
@@ -16,6 +17,11 @@ try {
     http_response_code($exc->getCode());
     die("API Error {$exc->getApiErrorCode()}: {$exc->getMessage()}. Request URL: {$exc->getRequestUrl()}");
 } catch (Exception $exc) {
-    http_response_code($exc->getCode());
+    if (function_exists('http_response_code')) {
+        http_response_code($exc->getCode());
+    } else {
+        $statuses = array(400 => '400 Bad Request', 500 => '500 Internal Server Error');
+        header('HTTP/1.1 ' . $statuses[$exc->getCode()]);
+    }
     die($exc->getMessage());
 }
