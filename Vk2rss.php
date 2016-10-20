@@ -170,8 +170,8 @@ class Vk2rss
             $this->domain = $id;
         }
         $this->count = $count;
-        $this->include = $include;
-        $this->exclude = $exclude;
+        $this->include = isset($include) ? preg_replace("/(?<!\\\)\//u", "\\/", $include) : null;
+        $this->exclude = isset($exclude) ? preg_replace("/(?<!\\\)\//u", "\\/", $exclude) : null;
     }
 
     /**
