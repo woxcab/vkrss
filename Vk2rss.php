@@ -71,6 +71,11 @@ class Vk2rss
      */
     protected $exclude;
 
+    /**
+     * @var ProxyDescriptor|null   Proxy descriptor
+     */
+    protected $proxy = null;
+
 
     /**
      * Get posts of wall
@@ -102,12 +107,15 @@ class Vk2rss
                 throw new Exception("Passed unsupported API method name '${api_method}'", 400);
         }
         $connector->openConnection();
-        $posts = $connector->getContent($url, null, true);
-        $connector->closeConnection();
-        if ($posts === false) {
-            throw new Exception("Failed to get content of URL ${url}", 400);
+        $content = null;
+        try {
+            $content = $connector->getContent($url, null, true);
+            $connector->closeConnection();
+        } catch (Exception $exc) {
+            $connector->closeConnection();
+            throw new Exception("Failed to get content of URL ${url}: " . $exc->getMessage(), $exc->getCode());
         }
-        return json_decode($posts);
+        return json_decode($content);
     }
 
     /**
@@ -144,7 +152,8 @@ class Vk2rss
         return $fullTitle;
     }
 
-    public function __construct($id, $count = 20, $include = NULL, $exclude = NULL)
+    public function __construct($id, $count = 20, $include = null, $exclude = null,
+                                $proxy = null, $proxy_type = null, $proxy_login = null, $proxy_password = null)
     {
         if (empty($id)) {
             throw new Exception("Empty identifier of user or group is passed", 400);
@@ -152,26 +161,33 @@ class Vk2rss
 
         if (strcmp(substr($id, 0, 2), 'id') === 0 && ctype_digit(substr($id, 2))) {
             $this->owner_id = (int)substr($id, 2);
-            $this->domain = NULL;
+            $this->domain = null;
         } elseif (strcmp(substr($id, 0, 4), 'club') === 0 && ctype_digit(substr($id, 4))) {
             $this->owner_id = -(int)substr($id, 4);
-            $this->domain = NULL;
+            $this->domain = null;
         } elseif (strcmp(substr($id, 0, 5), 'event') === 0 && ctype_digit(substr($id, 5))) {
             $this->owner_id = -(int)substr($id, 5);
-            $this->domain = NULL;
+            $this->domain = null;
         } elseif (strcmp(substr($id, 0, 6), 'public') === 0 && ctype_digit(substr($id, 6))) {
             $this->owner_id = -(int)substr($id, 6);
-            $this->domain = NULL;
+            $this->domain = null;
         } elseif (is_numeric($id) && is_int(abs($id))) {
             $this->owner_id = (int)$id;
-            $this->domain = NULL;
+            $this->domain = null;
         } else {
-            $this->owner_id = NULL;
+            $this->owner_id = null;
             $this->domain = $id;
         }
         $this->count = $count;
         $this->include = isset($include) ? preg_replace("/(?<!\\\)\//u", "\\/", $include) : null;
         $this->exclude = isset($exclude) ? preg_replace("/(?<!\\\)\//u", "\\/", $exclude) : null;
+        if (isset($proxy)) {
+            try {
+                $this->proxy = new ProxyDescriptor($proxy, $proxy_type, $proxy_login, $proxy_password);
+            } catch (Exception $exc) {
+                throw new Exception("Invalid proxy parameters: " . $exc->getMessage(), 400);
+            }
+        }
     }
 
     /**
@@ -187,7 +203,7 @@ class Vk2rss
             throw new Exception("Cannot set encoding UTF-8 for multibyte strings", 500);
         }
 
-        $connector = new ConnectionWrapper();
+        $connector = new ConnectionWrapper($this->proxy);
 
         if (!empty($this->domain) || (!empty($this->owner_id) && $this->owner_id < 0)) {
             $group_response = $this->getContent($connector, "groups.getById");
@@ -297,8 +313,8 @@ class Vk2rss
             $new_item->addElement('title', $this->getTitle($description));
             $new_item->addElement('guid', $post->id);
 
-            foreach ($hash_tags[1] as $hashTag) {
-                $new_item->addElement('category', $hashTag);
+            foreach ($hash_tags[1] as $hash_tag) {
+                $new_item->addElement('category', $hash_tag);
             }
 
             $feed->addItem($new_item);
