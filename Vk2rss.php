@@ -196,7 +196,6 @@ class Vk2rss
     public function generateRSS()
     {
         include('FeedWriter.php');
-        include('FeedItem.php');
 
         $outer_encoding = mb_internal_encoding();
         if (!mb_internal_encoding("UTF-8")) {
