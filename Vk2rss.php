@@ -293,7 +293,10 @@ class Vk2rss
                 array_unshift($description, $post->copy_text);
             }
             if (isset($post->attachment->photo->text) && $post->attachment->photo->text !== '') {
-                array_push($description, $post->attachment->photo->text);
+                $photo_text = preg_replace('|^Original: https?://\S+\s*|u', '', $post->attachment->photo->text);
+                if ($photo_text !== '') {
+                    array_push($description, $photo_text);
+                }
             }
             if (isset($post->attachment->video->text) && $post->attachment->video->text !== '') {
                 array_push($description, $post->attachment->video->text);
