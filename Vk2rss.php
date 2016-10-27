@@ -279,7 +279,7 @@ class Vk2rss
 
             $hash_tags = array();
             $description = preg_replace('/\[[^|]+\|([^\]]+)\]/u', '$1', $description); // remove internal vk links like [id123|Name]
-            preg_match_all('/#(\S+)/u', $description, $hash_tags);
+            preg_match_all('/#([а-яёА-ЯЁa-zA-Z0-9_]+)(?:@[a-zA-Z0-9_]+)?/u', $description, $hash_tags);
 
             if (isset($post->attachments)) {
                 foreach ($post->attachments as $attachment) {
