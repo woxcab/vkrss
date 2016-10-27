@@ -13,6 +13,7 @@ try {
         !empty($_GET['count']) ? $_GET['count'] : 20,
         isset($_GET['include']) ? $_GET['include'] : null,
         isset($_GET['exclude']) ? $_GET['exclude'] : null,
+        isset($_GET['disable_html']),
         isset($_GET['proxy']) ? $_GET['proxy'] : null,
         isset($_GET['proxy_type']) ?  mb_strtolower($_GET['proxy_type']) : null,
         isset($_GET['proxy_login']) ? $_GET['proxy_login'] : null,
