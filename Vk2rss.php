@@ -25,7 +25,7 @@ class Vk2rss
     /**
      * Delimiter of text from different parts of post
      */
-    const VERTICAL_DELIMITER = ' <br/> ________________ <br/> ';
+    const VERTICAL_DELIMITER = '________________';
     /**
      * Default title value when no text in the post
      */
@@ -140,7 +140,7 @@ class Vk2rss
         if (isset($group_response) && !property_exists($group_response, 'error') && !empty($group_response->response)) {
             $group = $group_response->response[0];
             $title = $group->name;
-            $description = self::GROUP_FEED_DESCRIPTION_PREFIX . $group->name;
+            $feed_description = self::GROUP_FEED_DESCRIPTION_PREFIX . $group->name;
         } else {
             $user_response = $this->getContent($connector, "users.get");
             if (property_exists($user_response, 'error')) {
@@ -150,7 +150,7 @@ class Vk2rss
             if (!empty($user_response->response)) {
                 $profile = $user_response->response[0];
                 $title = $profile->first_name . ' ' . $profile->last_name;
-                $description = self::USER_FEED_DESCRIPTION_PREFIX . $profile->first_name . ' ' . $profile->last_name;
+                $feed_description = self::USER_FEED_DESCRIPTION_PREFIX . $profile->first_name . ' ' . $profile->last_name;
             } else {
                 throw new Exception("Invalid user or group identifier", 400);
             }
@@ -168,33 +168,47 @@ class Vk2rss
             ($this->owner_id > 0 ? 'id' . $this->owner_id : 'club' . abs($this->owner_id));
 
         $feed->setTitle($title);
-        $feed->setDescription($description);
+        $feed->setDescription($feed_description);
         $feed->setLink('https://vk.com/' . $id);
 
         $feed->setChannelElement('language', 'ru-ru');
         $feed->setChannelElement('pubDate', date(DATE_RSS, time()));
+
+        $par_split_regex = '|\s*(?:<br/?>)+\s*|u';
+        $empty_string_regex = '|^(?:\s*(?:<br/?>)+\s*)*$|u';
 
         foreach (array_slice($wall_response->response, 1) as $post) {
             $new_item = $feed->createNewItem();
             $new_item->setLink("http://vk.com/wall{$post->to_id}_{$post->id}");
             $new_item->addElement('guid', "http://vk.com/wall{$post->to_id}_{$post->id}");
             $new_item->setDate($post->date);
-            $description = $post->text === '' ? array() : array($post->text);
-            if (isset($post->copy_text)) { # attached text to re-post
-                array_unshift($description, $post->copy_text);
+            $description = (preg_match($empty_string_regex, $post->text) === 1) ?
+                array() : preg_split($par_split_regex, $post->text);
+            if (isset($post->copy_text)
+                    && preg_match($empty_string_regex, $post->copy_text) === 0) { # attached text to re-post
+                $description = array_merge(preg_split($par_split_regex, $post->copy_text),
+                                           array(self::VERTICAL_DELIMITER),
+                                           $description);
             }
-            if (isset($post->attachment->photo->text) && $post->attachment->photo->text !== '') {
+            if (isset($post->attachment->photo->text)) {
                 $photo_text = preg_replace('|^Original: https?://\S+\s*|u', '', $post->attachment->photo->text);
-                if ($photo_text !== '') {
-                    array_push($description, $photo_text);
+                if (preg_match($empty_string_regex, $photo_text) === 0) {
+                    $description = array_merge($description,
+                                               array(self::VERTICAL_DELIMITER),
+                                               preg_split($par_split_regex, $photo_text));
                 }
             }
-            if (isset($post->attachment->video->text) && $post->attachment->video->text !== '') {
-                array_push($description, $post->attachment->video->text);
+            if (isset($post->attachment->video->text)
+                    && preg_match($empty_string_regex, $post->attachment->video->text) === 0) {
+                $description = array_merge($description,
+                                           array(self::VERTICAL_DELIMITER),
+                                           preg_split($par_split_regex, $post->attachment->video->text));
             }
             if (isset($post->attachment->link)) {
-                array_push($description,
-                           $post->attachment->link->title . '<br/>' . $post->attachment->link->description);
+                $description = array_merge($description,
+                                           array(self::VERTICAL_DELIMITER),
+                                           preg_split($par_split_regex, $post->attachment->link->title),
+                                           preg_split($par_split_regex, $post->attachment->link->description));
             }
             if (!is_null($this->include) && preg_match('/' . $this->include . '/iu', $description) !== 1) {
                 continue;
@@ -208,23 +222,23 @@ class Vk2rss
                 foreach ($post->attachments as $attachment) {
                     switch ($attachment->type) {
                         case 'photo': {
-                            array_push($description, "<br><img src='{$attachment->photo->src_big}'/>");
+                            array_push($description, "<img src='{$attachment->photo->src_big}'/>");
                             break;
                         }
                         /*case 'audio': {
-                          $description .= "<br><a href='http://vk.com/wall{$owner_id}_{$post->id}'>{$attachment->audio->performer} &ndash; {$attachment->audio->title}</a>";
+                          $description .= "<a href='http://vk.com/wall{$owner_id}_{$post->id}'>{$attachment->audio->performer} &ndash; {$attachment->audio->title}</a>";
                           break;
                         }*/
                         case 'doc': {
-                            array_push($description, "<br><a href='{$attachment->doc->url}'>{$attachment->doc->title}</a>");
+                            array_push($description, "<a href='{$attachment->doc->url}'>{$attachment->doc->title}</a>");
                             break;
                         }
                         case 'link': {
-                            array_push($description, "<br><a href='{$attachment->link->url}'>{$attachment->link->title}</a>");
+                            array_push($description, "<a href='{$attachment->link->url}'>{$attachment->link->title}</a>");
                             break;
                         }
                         /*case 'video': {
-                          $description .= "<br><a href='http://vk.com/video{$attachment->video->owner_id}_{$attachment->video->vid}'><img src='{$attachment->video->image_big}'/></a>";
+                          $description .= "<a href='http://vk.com/video{$attachment->video->owner_id}_{$attachment->video->vid}'><img src='{$attachment->video->image_big}'/></a>";
                           break;
                         }*/
                     }
@@ -234,12 +248,11 @@ class Vk2rss
             foreach ($description as &$paragraph) {
                 $paragraph = preg_replace('/\[[^|]+\|([^\]]+)\]/u', '$1', $paragraph); // remove internal vk links like [id123|Name]
             }
-            $new_item->setDescription(implode(self::VERTICAL_DELIMITER, $description));
-            $text_content = implode('<br/>', $description);
-            $new_item->addElement('title', $this->getTitle($text_content));
+            $new_item->setDescription(implode('<br/>', $description));
+            $new_item->addElement('title', $this->getTitle($description));
 
             $hash_tags = array();
-            preg_match_all('/' . self::HASH_TAG_REGEX . '/u', $text_content, $hash_tags);
+            preg_match_all('/' . self::HASH_TAG_REGEX . '/u', implode(' ', $description), $hash_tags);
 
             foreach ($hash_tags[1] as $hash_tag) {
                 $new_item->addElement('category', $hash_tag);
@@ -296,21 +309,17 @@ class Vk2rss
     /**
      * Generate title using text of post
      *
-     * @param $description string   text of post
+     * @param $description array   post paragraphs
      * @return string   generated title
      */
     protected function getTitle($description)
     {
-        $description = preg_replace('/(^(<br\/?>\s*?)+|(<br\/?>\s*?)+$|(<br\/?>\s*?)+(?=<br\/?>))/u', '', $description); // remove superfluous <br>
-        $description = preg_replace('/<(?!br|br\/)[^>]+>/u', '', $description); // remove all tags exclude <br> (but leave all other tags that starts with 'br'...)
-
-        if (empty($description)) {
+        foreach ($description as &$paragraph) {
+            $paragraph = preg_replace('/<[^>]+?>/u', '', $paragraph); // remove all tags
+        }
+        if (preg_match('/^\s*$/u', implode(PHP_EOL, $description)) === 1) {
             return self::EMPTY_POST_TITLE;
         }
-
-        $description_pars = preg_split("/<br\/?>/u", $description);
-        $curr_title_length = 0;
-        $par_idx = 0;
 
         if (!function_exists('remove_underscores_from_hash_tag')) {
             function remove_underscores_from_hash_tag($match)
@@ -319,11 +328,14 @@ class Vk2rss
             }
         }
 
-        foreach ($description_pars as $par_idx => &$paragraph) {
+        $curr_title_length = 0;
+        $par_idx = 0;
+
+        foreach ($description as $par_idx => &$paragraph) {
             $paragraph = trim($paragraph);
             if (preg_match('/^\s*(?:' . self::HASH_TAG_REGEX . '\s*)*$/u', $paragraph) === 1) {
                 // paragraph contains only hash tags
-                unset($description_pars[$par_idx]);
+                unset($description[$par_idx]);
                 continue;
             }
             // hash tags (if exist) are semantic part of paragraph
@@ -343,7 +355,7 @@ class Vk2rss
             }
         }
 
-        $full_title = implode(' ', array_slice($description_pars, 0, $par_idx));
+        $full_title = implode(' ', array_slice($description, 0, $par_idx));
         if (mb_strlen($full_title) > self::MAX_TITLE_LENGTH) {
             $split = preg_split('/\s+/u', utf8_strrev(mb_substr($full_title, 0, self::MAX_TITLE_LENGTH)), 2);
             $full_title = utf8_strrev($split[1]);
