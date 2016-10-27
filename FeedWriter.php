@@ -45,18 +45,6 @@ class FeedWriter
     // Start # public functions ---------------------------------------------
 
     /**
-     * Set a channel element
-     *
-     * @param $elementName string name of the channel tag
-     * @param $content string  content of the channel tag
-     * @return void
-     */
-    public function setChannelElement($elementName, $content)
-    {
-        $this->channels[$elementName] = $content;
-    }
-
-    /**
      * Set multiple channel elements from an array. Array elements
      * should be 'channelName' => 'channelContent' format.
      *
@@ -69,6 +57,18 @@ class FeedWriter
         foreach ($elementArray as $elementName => $content) {
             $this->setChannelElement($elementName, $content);
         }
+    }
+
+    /**
+     * Set a channel element
+     *
+     * @param $elementName string name of the channel tag
+     * @param $content string  content of the channel tag
+     * @return void
+     */
+    public function setChannelElement($elementName, $content)
+    {
+        $this->channels[$elementName] = $content;
     }
 
     /**
@@ -85,114 +85,6 @@ class FeedWriter
         $this->printItems();
         $this->printTale();
     }
-
-    /**
-     * Create a new FeedItem.
-     *
-     * @return object  instance of FeedItem class
-     */
-    public function createNewItem()
-    {
-        $Item = new FeedItem($this->version);
-        return $Item;
-    }
-
-    /**
-     * Add a FeedItem to the main class
-     *
-     * @param $feedItem object  instance of FeedItem class
-     * @return void
-     */
-    public function addItem($feedItem)
-    {
-        $this->items[] = $feedItem;
-    }
-
-
-    // Wrapper functions -------------------------------------------------------------------
-
-    /**
-     * Set the 'title' channel element
-     *
-     * @param $title string  value of 'title' channel tag
-     * @return void
-     */
-    public function setTitle($title)
-    {
-        $this->setChannelElement('title', $title);
-    }
-
-    /**
-     * Set the 'description' channel element
-     *
-     * @access   public
-     * @param    srting  value of 'description' channel tag
-     * @return   void
-     */
-    public function setDescription($desciption)
-    {
-        $this->setChannelElement('description', $desciption);
-    }
-
-    /**
-     * Set the 'link' channel element
-     *
-     * @access   public
-     * @param    srting  value of 'link' channel tag
-     * @return   void
-     */
-    public function setLink($link)
-    {
-        $this->setChannelElement('link', $link);
-    }
-
-    /**
-     * Set the 'image' channel element
-     *
-     * @access   public
-     * @param    srting  title of image
-     * @param    srting  link url of the imahe
-     * @param    srting  path url of the image
-     * @return   void
-     */
-    public function setImage($title, $link, $url)
-    {
-        $this->setChannelElement('image', array('title' => $title, 'link' => $link, 'url' => $url));
-    }
-
-    /**
-     * Set the 'about' channel element. Only for RSS 1.0
-     *
-     * @access   public
-     * @param    srting  value of 'about' channel tag
-     * @return   void
-     */
-    public function setChannelAbout($url)
-    {
-        $this->data['ChannelAbout'] = $url;
-    }
-
-    /**
-     * Genarates an UUID
-     * @author     Anis uddin Ahmad <admin@ajaxray.com>
-     * @param      string  an optional prefix
-     * @return     string  the formated uuid
-     */
-    public static function uuid($key = null, $prefix = '')
-    {
-        $key = ($key == null) ? uniqid(rand()) : $key;
-        $chars = md5($key);
-        $uuid = substr($chars, 0, 8) . '-';
-        $uuid .= substr($chars, 8, 4) . '-';
-        $uuid .= substr($chars, 12, 4) . '-';
-        $uuid .= substr($chars, 16, 4) . '-';
-        $uuid .= substr($chars, 20, 12);
-
-        return $prefix . $uuid;
-    }
-    // End # public functions ----------------------------------------------
-
-    // Start # private functions ----------------------------------------------
 
     /**
      * Prints the xml and rss namespace
@@ -222,22 +114,48 @@ class FeedWriter
     }
 
     /**
-     * Closes the open tags at the end of file
-     *
+     * @desc     Print channels
      * @access   private
      * @return   void
      */
-    private function printTale()
+    private function printChannels()
     {
-        if ($this->version == RSS2) {
-            echo '</channel>' . PHP_EOL . '</rss>';
-        } elseif ($this->version == RSS1) {
-            echo '</rdf:RDF>';
-        } else if ($this->version == ATOM) {
-            echo '</feed>';
+        //Start channel tag
+        switch ($this->version) {
+            case RSS2:
+                echo '<channel>' . PHP_EOL;
+                break;
+            case RSS1:
+                echo (isset($this->data['ChannelAbout'])) ? "<channel rdf:about=\"{$this->data['ChannelAbout']}\">" : "<channel rdf:about=\"{$this->channels['link']}\">";
+                break;
         }
 
+        //Print Items of channel
+        foreach ($this->channels as $key => $value) {
+            if ($this->version == ATOM && $key == 'link') {
+                // ATOM prints link element as href attribute
+                echo $this->makeNode($key, '', array('href' => $value));
+                //Add the id for ATOM
+                echo $this->makeNode('id', $this->uuid($value, 'urn:uuid:'));
+            } else {
+                echo $this->makeNode($key, $value);
+            }
+
+        }
+
+        //RSS 1.0 have special tag <rdf:Seq> with channel
+        if ($this->version == RSS1) {
+            echo "<items>" . PHP_EOL . "<rdf:Seq>" . PHP_EOL;
+            foreach ($this->items as $item) {
+                $thisItems = $item->getElements();
+                echo "<rdf:li resource=\"{$thisItems['link']['content']}\"/>" . PHP_EOL;
+            }
+            echo "</rdf:Seq>" . PHP_EOL . "</items>" . PHP_EOL . "</channel>" . PHP_EOL;
+        }
     }
+
+
+    // Wrapper functions -------------------------------------------------------------------
 
     /**
      * Creates a single node as xml format
@@ -282,44 +200,22 @@ class FeedWriter
     }
 
     /**
-     * @desc     Print channels
-     * @access   private
-     * @return   void
+     * Genarates an UUID
+     * @author     Anis uddin Ahmad <admin@ajaxray.com>
+     * @param      string  an optional prefix
+     * @return     string  the formated uuid
      */
-    private function printChannels()
+    public static function uuid($key = null, $prefix = '')
     {
-        //Start channel tag
-        switch ($this->version) {
-            case RSS2:
-                echo '<channel>' . PHP_EOL;
-                break;
-            case RSS1:
-                echo (isset($this->data['ChannelAbout'])) ? "<channel rdf:about=\"{$this->data['ChannelAbout']}\">" : "<channel rdf:about=\"{$this->channels['link']}\">";
-                break;
-        }
+        $key = ($key == null) ? uniqid(rand()) : $key;
+        $chars = md5($key);
+        $uuid = substr($chars, 0, 8) . '-';
+        $uuid .= substr($chars, 8, 4) . '-';
+        $uuid .= substr($chars, 12, 4) . '-';
+        $uuid .= substr($chars, 16, 4) . '-';
+        $uuid .= substr($chars, 20, 12);
 
-        //Print Items of channel
-        foreach ($this->channels as $key => $value) {
-            if ($this->version == ATOM && $key == 'link') {
-                // ATOM prints link element as href attribute
-                echo $this->makeNode($key, '', array('href' => $value));
-                //Add the id for ATOM
-                echo $this->makeNode('id', $this->uuid($value, 'urn:uuid:'));
-            } else {
-                echo $this->makeNode($key, $value);
-            }
-
-        }
-
-        //RSS 1.0 have special tag <rdf:Seq> with channel
-        if ($this->version == RSS1) {
-            echo "<items>" . PHP_EOL . "<rdf:Seq>" . PHP_EOL;
-            foreach ($this->items as $item) {
-                $thisItems = $item->getElements();
-                echo "<rdf:li resource=\"{$thisItems['link']['content']}\"/>" . PHP_EOL;
-            }
-            echo "</rdf:Seq>" . PHP_EOL . "</items>" . PHP_EOL . "</channel>" . PHP_EOL;
-        }
+        return $prefix . $uuid;
     }
 
     /**
@@ -386,6 +282,110 @@ class FeedWriter
         }
     }
 
+    /**
+     * Closes the open tags at the end of file
+     *
+     * @access   private
+     * @return   void
+     */
+    private function printTale()
+    {
+        if ($this->version == RSS2) {
+            echo '</channel>' . PHP_EOL . '</rss>';
+        } elseif ($this->version == RSS1) {
+            echo '</rdf:RDF>';
+        } else if ($this->version == ATOM) {
+            echo '</feed>';
+        }
+
+    }
+    // End # public functions ----------------------------------------------
+
+    // Start # private functions ----------------------------------------------
+
+    /**
+     * Create a new FeedItem.
+     *
+     * @return object  instance of FeedItem class
+     */
+    public function createNewItem()
+    {
+        $Item = new FeedItem($this->version);
+        return $Item;
+    }
+
+    /**
+     * Add a FeedItem to the main class
+     *
+     * @param $feedItem object  instance of FeedItem class
+     * @return void
+     */
+    public function addItem($feedItem)
+    {
+        $this->items[] = $feedItem;
+    }
+
+    /**
+     * Set the 'title' channel element
+     *
+     * @param $title string  value of 'title' channel tag
+     * @return void
+     */
+    public function setTitle($title)
+    {
+        $this->setChannelElement('title', $title);
+    }
+
+    /**
+     * Set the 'description' channel element
+     *
+     * @access   public
+     * @param    srting  value of 'description' channel tag
+     * @return   void
+     */
+    public function setDescription($desciption)
+    {
+        $this->setChannelElement('description', $desciption);
+    }
+
+    /**
+     * Set the 'link' channel element
+     *
+     * @access   public
+     * @param    srting  value of 'link' channel tag
+     * @return   void
+     */
+    public function setLink($link)
+    {
+        $this->setChannelElement('link', $link);
+    }
+
+    /**
+     * Set the 'image' channel element
+     *
+     * @access   public
+     * @param    srting  title of image
+     * @param    srting  link url of the imahe
+     * @param    srting  path url of the image
+     * @return   void
+     */
+    public function setImage($title, $link, $url)
+    {
+        $this->setChannelElement('image', array('title' => $title, 'link' => $link, 'url' => $url));
+    }
+
+    /**
+     * Set the 'about' channel element. Only for RSS 1.0
+     *
+     * @access   public
+     * @param    srting  value of 'about' channel tag
+     * @return   void
+     */
+    public function setChannelAbout($url)
+    {
+        $this->data['ChannelAbout'] = $url;
+    }
+
 
     // End # private functions ----------------------------------------------
 
@@ -411,6 +411,22 @@ class FeedItem
     }
 
     /**
+     * Set multiple feed elements from an array.
+     * Elements which have attributes cannot be added by this method
+     *
+     * @access   public
+     * @param    array   array of elements in 'tagName' => 'tagContent' format.
+     * @return   void
+     */
+    public function addElementArray($elementArray)
+    {
+        if (!is_array($elementArray)) return;
+        foreach ($elementArray as $elementName => $content) {
+            $this->addElement($elementName, $content);
+        }
+    }
+
+    /**
      * Add an element to elements array
      *
      * @param $elementName string  The tag name of an element
@@ -431,22 +447,6 @@ class FeedItem
         }
         $this->elements[$elementName]['name'] = $elementName;
         $this->elements[$elementName]['attributes'] = $attributes;
-    }
-
-    /**
-     * Set multiple feed elements from an array.
-     * Elements which have attributes cannot be added by this method
-     *
-     * @access   public
-     * @param    array   array of elements in 'tagName' => 'tagContent' format.
-     * @return   void
-     */
-    public function addElementArray($elementArray)
-    {
-        if (!is_array($elementArray)) return;
-        foreach ($elementArray as $elementName => $content) {
-            $this->addElement($elementName, $content);
-        }
     }
 
     /**

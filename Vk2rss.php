@@ -77,115 +77,6 @@ class Vk2rss
      */
     protected $proxy = null;
 
-
-    /**
-     * Get posts of wall
-     *
-     * @param ConnectionWrapper $connector
-     * @param string $api_method   API method name
-     * @return mixed   Json VK response in appropriate PHP type
-     * @throws Exception   If unsupported API method name is passed or data retrieving is failed
-     */
-    protected function getContent($connector, $api_method)
-    {
-        $url = self::API_BASE_URL . $api_method . '?';
-        switch ($api_method) {
-            case "wall.get":
-                if (!empty($this->domain)) {
-                    $url .= "domain={$this->domain}";
-                } else {
-                    $url .= "owner_id={$this->owner_id}";
-                }
-                $url .= "&count={$this->count}";
-                break;
-            case "users.get":
-                $url .= "fields=first_name,last_name&user_ids=" . (!empty($this->domain) ? $this->domain : $this->owner_id);
-                break;
-            case "groups.getById":
-                $url .= "fields=name&group_id=" . (!empty($this->domain) ? $this->domain : abs($this->owner_id));
-                break;
-            default:
-                throw new Exception("Passed unsupported API method name '${api_method}'", 400);
-        }
-        $connector->openConnection();
-        $content = null;
-        try {
-            $content = $connector->getContent($url, null, true);
-            $connector->closeConnection();
-        } catch (Exception $exc) {
-            $connector->closeConnection();
-            throw new Exception("Failed to get content of URL ${url}: " . $exc->getMessage(), $exc->getCode());
-        }
-        return json_decode($content);
-    }
-
-
-    /**
-     * Generate title using text of post
-     *
-     * @param $description string   text of post
-     * @return string   generated title
-     */
-    protected function getTitle($description)
-    {
-        $description = preg_replace('/(^(<br\/?>\s*?)+|(<br\/?>\s*?)+$|(<br\/?>\s*?)+(?=<br\/?>))/u', '', $description); // remove superfluous <br>
-        $description = preg_replace('/<(?!br|br\/)[^>]+>/u', '', $description); // remove all tags exclude <br> (but leave all other tags that starts with 'br'...)
-
-        if (empty($description)) {
-            return self::EMPTY_POST_TITLE;
-        }
-
-        $description_pars = preg_split("/<br\/?>/u", $description);
-        $curr_title_length = 0;
-        $par_idx = 0;
-
-        if (!function_exists('remove_underscores_from_hash_tag')) {
-            function remove_underscores_from_hash_tag($match)
-            {
-                return str_replace('_', ' ', $match[1]);
-            }
-        }
-
-        foreach ($description_pars as $par_idx => &$paragraph) {
-            $paragraph = trim($paragraph);
-            if (preg_match('/^\s*(?:' . self::HASH_TAG_REGEX . '\s*)*$/u', $paragraph) === 1) {
-                // paragraph contains only hash tags
-                unset($description_pars[$par_idx]);
-                continue;
-            }
-            // hash tags (if exist) are semantic part of paragraph
-            $paragraph = preg_replace_callback('/' . self::HASH_TAG_REGEX . '/u',
-                                               'remove_underscores_from_hash_tag',
-                                               $paragraph);
-
-            if ($curr_title_length < self::MAX_TITLE_LENGTH
-                    && (mb_strlen($paragraph) >= self::MIN_PARAGRAPH_LENGTH_FOR_TITLE
-                    || $curr_title_length + self::MIN_PARAGRAPH_LENGTH_FOR_TITLE < self::MAX_TITLE_LENGTH)) {
-                if (!in_array(mb_substr($paragraph, -1), array('.', '!', '?', ',', ':', ';'))) {
-                    $paragraph .= '.';
-                }
-                $curr_title_length += mb_strlen($paragraph);
-            } else {
-                break;
-            }
-        }
-
-        $full_title = implode(' ', array_slice($description_pars, 0, $par_idx));
-        if (mb_strlen($full_title) > self::MAX_TITLE_LENGTH) {
-            $split = preg_split('/\s+/u', utf8_strrev(mb_substr($full_title, 0, self::MAX_TITLE_LENGTH)), 2);
-            $full_title = utf8_strrev($split[1]);
-
-            $last_char = mb_substr($full_title, -1);
-            if (in_array($last_char, array(',', ':', ';', '-'))) {
-                $full_title = mb_substr($full_title, 0, -1) . '...';
-            } elseif (!in_array($last_char, array('.', '!', '?', ')'))) {
-                $full_title .= '...';
-            }
-        }
-        $full_title = mb_strtoupper(mb_substr($full_title, 0, 1)) . mb_substr($full_title, 1);
-        return $full_title;
-    }
-
     public function __construct($id, $count = 20, $include = null, $exclude = null,
                                 $proxy = null, $proxy_type = null, $proxy_login = null, $proxy_password = null)
     {
@@ -359,6 +250,113 @@ class Vk2rss
 
         $feed->generateFeed();
         mb_internal_encoding($outer_encoding);
+    }
+
+    /**
+     * Get posts of wall
+     *
+     * @param ConnectionWrapper $connector
+     * @param string $api_method   API method name
+     * @return mixed   Json VK response in appropriate PHP type
+     * @throws Exception   If unsupported API method name is passed or data retrieving is failed
+     */
+    protected function getContent($connector, $api_method)
+    {
+        $url = self::API_BASE_URL . $api_method . '?';
+        switch ($api_method) {
+            case "wall.get":
+                if (!empty($this->domain)) {
+                    $url .= "domain={$this->domain}";
+                } else {
+                    $url .= "owner_id={$this->owner_id}";
+                }
+                $url .= "&count={$this->count}";
+                break;
+            case "users.get":
+                $url .= "fields=first_name,last_name&user_ids=" . (!empty($this->domain) ? $this->domain : $this->owner_id);
+                break;
+            case "groups.getById":
+                $url .= "fields=name&group_id=" . (!empty($this->domain) ? $this->domain : abs($this->owner_id));
+                break;
+            default:
+                throw new Exception("Passed unsupported API method name '${api_method}'", 400);
+        }
+        $connector->openConnection();
+        $content = null;
+        try {
+            $content = $connector->getContent($url, null, true);
+            $connector->closeConnection();
+        } catch (Exception $exc) {
+            $connector->closeConnection();
+            throw new Exception("Failed to get content of URL ${url}: " . $exc->getMessage(), $exc->getCode());
+        }
+        return json_decode($content);
+    }
+
+    /**
+     * Generate title using text of post
+     *
+     * @param $description string   text of post
+     * @return string   generated title
+     */
+    protected function getTitle($description)
+    {
+        $description = preg_replace('/(^(<br\/?>\s*?)+|(<br\/?>\s*?)+$|(<br\/?>\s*?)+(?=<br\/?>))/u', '', $description); // remove superfluous <br>
+        $description = preg_replace('/<(?!br|br\/)[^>]+>/u', '', $description); // remove all tags exclude <br> (but leave all other tags that starts with 'br'...)
+
+        if (empty($description)) {
+            return self::EMPTY_POST_TITLE;
+        }
+
+        $description_pars = preg_split("/<br\/?>/u", $description);
+        $curr_title_length = 0;
+        $par_idx = 0;
+
+        if (!function_exists('remove_underscores_from_hash_tag')) {
+            function remove_underscores_from_hash_tag($match)
+            {
+                return str_replace('_', ' ', $match[1]);
+            }
+        }
+
+        foreach ($description_pars as $par_idx => &$paragraph) {
+            $paragraph = trim($paragraph);
+            if (preg_match('/^\s*(?:' . self::HASH_TAG_REGEX . '\s*)*$/u', $paragraph) === 1) {
+                // paragraph contains only hash tags
+                unset($description_pars[$par_idx]);
+                continue;
+            }
+            // hash tags (if exist) are semantic part of paragraph
+            $paragraph = preg_replace_callback('/' . self::HASH_TAG_REGEX . '/u',
+                                               'remove_underscores_from_hash_tag',
+                                               $paragraph);
+
+            if ($curr_title_length < self::MAX_TITLE_LENGTH
+                    && (mb_strlen($paragraph) >= self::MIN_PARAGRAPH_LENGTH_FOR_TITLE
+                    || $curr_title_length + self::MIN_PARAGRAPH_LENGTH_FOR_TITLE < self::MAX_TITLE_LENGTH)) {
+                if (!in_array(mb_substr($paragraph, -1), array('.', '!', '?', ',', ':', ';'))) {
+                    $paragraph .= '.';
+                }
+                $curr_title_length += mb_strlen($paragraph);
+            } else {
+                break;
+            }
+        }
+
+        $full_title = implode(' ', array_slice($description_pars, 0, $par_idx));
+        if (mb_strlen($full_title) > self::MAX_TITLE_LENGTH) {
+            $split = preg_split('/\s+/u', utf8_strrev(mb_substr($full_title, 0, self::MAX_TITLE_LENGTH)), 2);
+            $full_title = utf8_strrev($split[1]);
+
+            $last_char = mb_substr($full_title, -1);
+            if (in_array($last_char, array(',', ':', ';', '-'))) {
+                $full_title = mb_substr($full_title, 0, -1) . '...';
+            } elseif (!in_array($last_char, array('.', '!', '?', ')'))) {
+                $full_title .= '...';
+            }
+        }
+        $full_title = mb_strtoupper(mb_substr($full_title, 0, 1)) . mb_substr($full_title, 1);
+        return $full_title;
     }
 
 }

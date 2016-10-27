@@ -25,41 +25,6 @@ class ProxyDescriptor
     protected $login;
     protected $password;
 
-    /**
-     * @return array   Matches allowed proxy type as string to cURL opt proxy type if cURL extension is loaded
-     *                 otherwise matches allowed proxy type to 'true'
-     */
-    public static function getSupportedTypes()
-    {
-        return self::$supportedTypes;
-    }
-
-    public static function init()
-    {
-        self::$supportedTypes = array();
-        if (extension_loaded('curl')) {
-            self::$supportedTypes['http'] = CURLPROXY_HTTP;
-            if (extension_loaded('openssl')) {
-                self::$supportedTypes['https'] = CURLPROXY_HTTP;
-            }
-            if (defined('CURLPROXY_SOCKS4')) {
-                self::$supportedTypes['socks4'] = CURLPROXY_SOCKS4;
-            }
-            if (defined('CURLPROXY_SOCKS4A')) {
-                self::$supportedTypes['socks4a'] = CURLPROXY_SOCKS4A;
-            }
-            if (defined('CURLPROXY_SOCKS5')) {
-                self::$supportedTypes['socks5'] = CURLPROXY_SOCKS5;
-            }
-        }
-        if (ini_get('allow_url_fopen') == 1) {
-            self::$supportedTypes['http'] = true;
-            if (extension_loaded('openssl')) {
-                self::$supportedTypes['https'] = true;
-            }
-        }
-    }
-
     public function __construct($address, $type = null, $login = null, $password = null)
     {
         $type = mb_strtolower($type);
@@ -108,6 +73,41 @@ class ProxyDescriptor
             throw new Exception("Invalid proxy address: '${$address}'");
         }
         $this->address = $match['address'];
+    }
+
+    /**
+     * @return array   Matches allowed proxy type as string to cURL opt proxy type if cURL extension is loaded
+     *                 otherwise matches allowed proxy type to 'true'
+     */
+    public static function getSupportedTypes()
+    {
+        return self::$supportedTypes;
+    }
+
+    public static function init()
+    {
+        self::$supportedTypes = array();
+        if (extension_loaded('curl')) {
+            self::$supportedTypes['http'] = CURLPROXY_HTTP;
+            if (extension_loaded('openssl')) {
+                self::$supportedTypes['https'] = CURLPROXY_HTTP;
+            }
+            if (defined('CURLPROXY_SOCKS4')) {
+                self::$supportedTypes['socks4'] = CURLPROXY_SOCKS4;
+            }
+            if (defined('CURLPROXY_SOCKS4A')) {
+                self::$supportedTypes['socks4a'] = CURLPROXY_SOCKS4A;
+            }
+            if (defined('CURLPROXY_SOCKS5')) {
+                self::$supportedTypes['socks5'] = CURLPROXY_SOCKS5;
+            }
+        }
+        if (ini_get('allow_url_fopen') == 1) {
+            self::$supportedTypes['http'] = true;
+            if (extension_loaded('openssl')) {
+                self::$supportedTypes['https'] = true;
+            }
+        }
     }
 
     /**
