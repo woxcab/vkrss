@@ -21,7 +21,10 @@ require_once('utils.php');
 
 class Vk2rss
 {
-    const HASH_TAG_REGEX = '#([а-яёА-ЯЁa-zA-Z0-9_]+)(?:@[a-zA-Z0-9_]+)?';
+    const HASH_TAG_PATTERN = '#([а-яёА-ЯЁa-zA-Z0-9_]+)(?:@[a-zA-Z0-9_]+)?';
+    const TEXTUAL_LINK_PATTERN = '@\b(https?://\S+?)(?=[.,!?;:»”’"]?(?:\s|$))@u';
+    const TEXTUAL_LINK_REPLACE_PATTERN = '<a href=\'$1\'>$1</a>';
+
     /**
      * Delimiter of text from different parts of post
      */
@@ -208,7 +211,7 @@ class Vk2rss
             $new_item->addElement('title', $this->getTitle($description));
 
             $hash_tags = array();
-            preg_match_all('/' . self::HASH_TAG_REGEX . '/u', implode(' ', $description), $hash_tags);
+            preg_match_all('/' . self::HASH_TAG_PATTERN . '/u', implode(' ', $description), $hash_tags);
 
             foreach ($hash_tags[1] as $hash_tag) {
                 $new_item->addElement('category', $hash_tag);
@@ -227,7 +230,13 @@ class Vk2rss
         $empty_string_regex = '@^(?:[\s ]*(?:<br/?>|\n)+[\s ]*)*$@u';
 
         if (preg_match($empty_string_regex, $post->text) === 0) {
-            $description = array_merge($description, preg_split($par_split_regex, $post->text));
+            $post_text = $post->text;
+            if (!$this->disable_html) {
+                $post_text = preg_replace(self::TEXTUAL_LINK_PATTERN,
+                                          self::TEXTUAL_LINK_REPLACE_PATTERN,
+                                          $post_text);
+            }
+            $description = array_merge($description, preg_split($par_split_regex, $post_text));
         }
 
         if (isset($post->attachments)) {
@@ -238,6 +247,12 @@ class Vk2rss
                         $photo_text = preg_replace('|^Original: https?://\S+\s*|u',
                                                    '',
                                                    $attachment->photo->text);
+
+                        if (!$this->disable_html) {
+                            $photo_text = preg_replace(self::TEXTUAL_LINK_PATTERN,
+                                                       self::TEXTUAL_LINK_REPLACE_PATTERN,
+                                                       $photo_text);
+                        }
                         $huge_photo_src = $attachment->photo->{end($photo_sizes)};
                         $photo = $this->disable_html ?
                             $huge_photo_src : "<a href='{$huge_photo_src}'><img src='{$attachment->photo->{$photo_sizes[2]}}'/></a>";
@@ -286,8 +301,14 @@ class Vk2rss
                         break;
                     }
                     case 'video': {
-                        $video_description = preg_match($empty_string_regex, $attachment->video->description) === 1 ?
-                            array() : preg_split($par_split_regex, $attachment->video->description);
+                        $video_text = $attachment->video->description;
+                        if (!$this->disable_html) {
+                            $video_text = preg_replace(self::TEXTUAL_LINK_PATTERN,
+                                                       self::TEXTUAL_LINK_REPLACE_PATTERN,
+                                                       $video_text);
+                        }
+                        $video_description = preg_match($empty_string_regex, $video_text) === 1 ?
+                            array() : preg_split($par_split_regex, $video_text);
                         $content = array("Видеозапись «{$attachment->video->title}»:");
                         if ($video_description) {
                             array_unshift($content, self::VERTICAL_DELIMITER);
@@ -384,13 +405,13 @@ class Vk2rss
 
         foreach ($description as $par_idx => &$paragraph) {
             $paragraph = trim($paragraph);
-            if (preg_match('/^\s*(?:' . self::HASH_TAG_REGEX . '\s*)*$/u', $paragraph) === 1 // paragraph contains only hash tags
+            if (preg_match('/^\s*(?:' . self::HASH_TAG_PATTERN . '\s*)*$/u', $paragraph) === 1 // paragraph contains only hash tags
                     || $paragraph === self::VERTICAL_DELIMITER) {
                 unset($description[$par_idx]);
                 continue;
             }
             // hash tags (if exist) are semantic part of paragraph
-            $paragraph = preg_replace_callback('/' . self::HASH_TAG_REGEX . '/u',
+            $paragraph = preg_replace_callback('/' . self::HASH_TAG_PATTERN . '/u',
                                                'remove_underscores_from_hash_tag', # anonymous function only in PHP>=5.3.0
                                                $paragraph);
 
