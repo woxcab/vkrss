@@ -78,6 +78,10 @@ class Vk2rss
      * @var bool   whether the HTML tags to be used in the feed item description
      */
     protected $disable_html;
+    /**
+     * @var string|null   Token for access to closed walls that opened for token creator
+     */
+    protected $access_token;
 
     /**
      * @var ProxyDescriptor|null   Proxy descriptor
@@ -85,6 +89,7 @@ class Vk2rss
     protected $proxy = null;
 
     public function __construct($id, $count = 20, $include = null, $exclude = null, $disable_html=false,
+                                $access_token = null,
                                 $proxy = null, $proxy_type = null, $proxy_login = null, $proxy_password = null)
     {
         if (empty($id)) {
@@ -114,6 +119,7 @@ class Vk2rss
         $this->include = isset($include) ? preg_replace("/(?<!\\\)\//u", "\\/", $include) : null;
         $this->exclude = isset($exclude) ? preg_replace("/(?<!\\\)\//u", "\\/", $exclude) : null;
         $this->disable_html = $disable_html;
+        $this->access_token = $access_token;
         if (isset($proxy)) {
             try {
                 $this->proxy = new ProxyDescriptor($proxy, $proxy_type, $proxy_login, $proxy_password);
@@ -347,21 +353,24 @@ class Vk2rss
      */
     protected function getContent($connector, $api_method)
     {
-        $url = self::API_BASE_URL . $api_method . '?v=5.54&';
+        $url = self::API_BASE_URL . $api_method . '?v=5.54';
+        if (isset($this->access_token)) {
+            $url .= "&access_token={$this->access_token}";
+        }
         switch ($api_method) {
             case "wall.get":
                 if (!empty($this->domain)) {
-                    $url .= "domain={$this->domain}";
+                    $url .= "&domain={$this->domain}";
                 } else {
-                    $url .= "owner_id={$this->owner_id}";
+                    $url .= "&owner_id={$this->owner_id}";
                 }
                 $url .= "&count={$this->count}";
                 break;
             case "users.get":
-                $url .= "fields=first_name,last_name&user_ids=" . (!empty($this->domain) ? $this->domain : $this->owner_id);
+                $url .= "&fields=first_name,last_name&user_ids=" . (!empty($this->domain) ? $this->domain : $this->owner_id);
                 break;
             case "groups.getById":
-                $url .= "fields=name&group_id=" . (!empty($this->domain) ? $this->domain : abs($this->owner_id));
+                $url .= "&fields=name&group_id=" . (!empty($this->domain) ? $this->domain : abs($this->owner_id));
                 break;
             default:
                 throw new Exception("Passed unsupported API method name '${api_method}'", 400);
