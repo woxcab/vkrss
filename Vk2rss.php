@@ -444,7 +444,7 @@ class Vk2rss
             }
         }
 
-        $full_title = implode(' ', array_slice($description, 0, $par_idx));
+        $full_title = implode(' ', array_slice($description, 0, $par_idx + 1));
         if (mb_strlen($full_title) > self::MAX_TITLE_LENGTH) {
             $split = preg_split('/\s+/u', utf8_strrev(mb_substr($full_title, 0, self::MAX_TITLE_LENGTH)), 2);
             $full_title = utf8_strrev($split[1]);
