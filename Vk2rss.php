@@ -181,8 +181,8 @@ class Vk2rss
 
         foreach ($wall_response->response->items as $post) {
             $new_item = $feed->createNewItem();
-            $new_item->setLink("http://vk.com/wall{$post->owner_id}_{$post->id}");
-                $new_item->addElement('guid', "http://vk.com/wall{$post->owner_id}_{$post->id}");
+            $new_item->setLink("https://vk.com/wall{$post->owner_id}_{$post->id}");
+            $new_item->addElement('guid', "https://vk.com/wall{$post->owner_id}_{$post->id}");
             $new_item->setDate($post->date);
 
             $description = array();
@@ -234,7 +234,7 @@ class Vk2rss
             foreach ($post->attachments as $attachment) {
                 switch ($attachment->type) {
                     case 'photo': {
-                        $photo_sizes = array_values(preg_grep('/^photo_/', array_keys(get_object_vars($attachment->photo))));
+                        $photo_sizes = array_values(preg_grep('/^photo_/u', array_keys(get_object_vars($attachment->photo))));
                         $photo_text = preg_replace('|^Original: https?://\S+\s*|u',
                                                    '',
                                                    $attachment->photo->text);
@@ -286,22 +286,19 @@ class Vk2rss
                         break;
                     }
                     case 'video': {
-                        $video_description = preg_match($empty_string_regex, $attachment->video->description) ?
+                        $video_description = preg_match($empty_string_regex, $attachment->video->description) === 1 ?
                             array() : preg_split($par_split_regex, $attachment->video->description);
-                        if ($this->disable_html) {
-                            $description = array_merge(
-                                $description,
-                                array("Видеозапись «{$attachment->video->title}»:",
-                                      "https://vk.com/video{$attachment->video->owner_id}_{$attachment->video->id}"),
-                                $video_description);
-                        } else {
-                            $preview_sizes = array_values(preg_grep('/^photo_/', array_keys(get_object_vars($attachment->video))));
-                            $description = array_merge(
-                                $description,
-                                array("Видеозапись «{$attachment->video->title}»:",
-                                      "<a href='https://vk.com/video{$attachment->video->owner_id}_{$attachment->video->id}'><img src='{$attachment->video->{$preview_sizes[1]}}'/></a>"),
-                                $video_description);
+                        $content = array("Видеозапись «{$attachment->video->title}»:");
+                        if ($video_description) {
+                            array_unshift($content, self::VERTICAL_DELIMITER);
                         }
+                        if ($this->disable_html) {
+                            array_push($content, "https://vk.com/video{$attachment->video->owner_id}_{$attachment->video->id}");
+                        } else {
+                            $preview_sizes = array_values(preg_grep('/^photo_/u', array_keys(get_object_vars($attachment->video))));
+                            array_push($content, "<a href='https://vk.com/video{$attachment->video->owner_id}_{$attachment->video->id}'><img src='{$attachment->video->{$preview_sizes[2]}}'/></a>");
+                        }
+                        $description = array_merge($description, $content, $video_description);
                         break;
                     }
                 }
