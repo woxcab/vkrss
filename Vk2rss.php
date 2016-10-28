@@ -79,6 +79,10 @@ class Vk2rss
      */
     protected $disable_html;
     /**
+     * @var bool   whether the post for feed should be sent by community/profile owner
+     */
+    protected $owner_only;
+    /**
      * @var string|null   Token for access to closed walls that opened for token creator
      */
     protected $access_token;
@@ -89,7 +93,7 @@ class Vk2rss
     protected $proxy = null;
 
     public function __construct($id, $count = 20, $include = null, $exclude = null, $disable_html=false,
-                                $access_token = null,
+                                $owner_only = false, $access_token = null,
                                 $proxy = null, $proxy_type = null, $proxy_login = null, $proxy_password = null)
     {
         if (empty($id)) {
@@ -119,6 +123,7 @@ class Vk2rss
         $this->include = isset($include) ? preg_replace("/(?<!\\\)\//u", "\\/", $include) : null;
         $this->exclude = isset($exclude) ? preg_replace("/(?<!\\\)\//u", "\\/", $exclude) : null;
         $this->disable_html = $disable_html;
+        $this->owner_only = $owner_only;
         $this->access_token = $access_token;
         if (isset($proxy)) {
             try {
@@ -189,6 +194,9 @@ class Vk2rss
         $feed->setChannelElement('pubDate', date(DATE_RSS, time()));
 
         foreach ($wall_response->response->items as $post) {
+            if ($this->owner_only && $post->owner_id != $post->from_id) {
+                continue;
+            }
             $new_item = $feed->createNewItem();
             $new_item->setLink("https://vk.com/wall{$post->owner_id}_{$post->id}");
             $new_item->addElement('guid', "https://vk.com/wall{$post->owner_id}_{$post->id}");

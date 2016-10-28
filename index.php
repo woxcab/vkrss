@@ -14,6 +14,7 @@ try {
         isset($_GET['include']) ? $_GET['include'] : null,
         isset($_GET['exclude']) ? $_GET['exclude'] : null,
         isset($_GET['disable_html']),
+        isset($_GET['owner_only']),
         isset($_GET['access_token']) ? $_GET['access_token'] : null,
         isset($_GET['proxy']) ? $_GET['proxy'] : null,
         isset($_GET['proxy_type']) ?  mb_strtolower($_GET['proxy_type']) : null,
