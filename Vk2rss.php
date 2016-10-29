@@ -151,9 +151,7 @@ class Vk2rss
         if (!empty($this->domain) || (!empty($this->owner_id) && $this->owner_id < 0)) {
             $group_response = $this->getContent($connector, "groups.getById");
             if (property_exists($group_response, 'error') && $group_response->error->error_code != 100) {
-                throw new APIError($group_response->error->error_msg,
-                    $group_response->error->error_code,
-                    $connector->getLastUrl());
+                throw new APIError($group_response, $connector->getLastUrl());
             }
         }
         if (isset($group_response) && !property_exists($group_response, 'error') && !empty($group_response->response)) {
@@ -163,8 +161,7 @@ class Vk2rss
         } else {
             $user_response = $this->getContent($connector, "users.get");
             if (property_exists($user_response, 'error')) {
-                throw new APIError($user_response->error->error_msg,
-                    $user_response->error->error_code, $connector->getLastUrl());
+                throw new APIError($user_response, $connector->getLastUrl());
             }
             if (!empty($user_response->response)) {
                 $profile = $user_response->response[0];

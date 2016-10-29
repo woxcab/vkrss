@@ -370,15 +370,22 @@ class APIError extends Exception {
     /**
      * APIError constructor.
      *
-     * @param string $message
-     * @param int $api_error_code
+     * @param object $error_response
      * @param string $request_url
-     * @param Exception $previous
      */
-    public function __construct($message, $api_error_code, $request_url, $previous = null)
+    public function __construct($error_response, $request_url)
     {
-        parent::__construct($message, 400, $previous);
-        $this->apiErrorCode = $api_error_code;
+        $message = $error_response->error->error_msg;
+        switch ($error_response->error->error_code) {
+            case 5:
+                $message = "Access token is expired (probably by app session terminating). It is necessary to create new token. ${message}";
+                break;
+            case 17:
+                $message .= ": {$error_response->error->redirect_uri}";
+                break;
+        }
+        parent::__construct($message, 400);
+        $this->apiErrorCode = $error_response->error->error_code;
         $this->requestUrl = $request_url;
     }
 
