@@ -188,9 +188,11 @@ class Vk2rss
             sleep(1);
             $wall_response = $this->getContent($connector, "wall.get", $offset);
             if (property_exists($wall_response, 'error')) {
-                throw new APIError($wall_response->error->error_msg,
-                                   $wall_response->error->error_code,
-                                   $connector->getLastUrl());
+                throw new APIError($wall_response, $connector->getLastUrl());
+            }
+
+            if (empty($wall_response->response->items)) {
+                break;
             }
 
             foreach ($wall_response->response->items as $post) {
@@ -204,7 +206,7 @@ class Vk2rss
 
                 $description = array();
                 $this->extractDescription($description, $post);
-                if ($description[0] === self::VERTICAL_DELIMITER) {
+                if (!empty($description) && $description[0] === self::VERTICAL_DELIMITER) {
                     array_shift($description);
                 }
 
@@ -333,7 +335,8 @@ class Vk2rss
                             array_push($content, "https://vk.com/video{$attachment->video->owner_id}_{$attachment->video->id}");
                         } else {
                             $preview_sizes = array_values(preg_grep('/^photo_/u', array_keys(get_object_vars($attachment->video))));
-                            array_push($content, "<a href='https://vk.com/video{$attachment->video->owner_id}_{$attachment->video->id}'><img src='{$attachment->video->{$preview_sizes[2]}}'/></a>");
+                            $preview_size = isset($preview_sizes[2]) ? $preview_sizes[2] : end($preview_sizes);
+                            array_push($content, "<a href='https://vk.com/video{$attachment->video->owner_id}_{$attachment->video->id}'><img src='{$attachment->video->{$preview_size}}'/></a>");
                         }
                         $description = array_merge($description, $content, $video_description);
                         break;
@@ -429,7 +432,7 @@ class Vk2rss
         $par_idx = 0;
 
         foreach ($description as $par_idx => &$paragraph) {
-            $paragraph = trim($paragraph);
+            $paragraph = trim(preg_replace(self::TEXTUAL_LINK_PATTERN, '', $paragraph));
             if (preg_match('/^\s*(?:' . self::HASH_TAG_PATTERN . '\s*)*$/u', $paragraph) === 1 // paragraph contains only hash tags
                     || $paragraph === self::VERTICAL_DELIMITER) {
                 unset($description[$par_idx]);
