@@ -172,13 +172,6 @@ class Vk2rss
             }
         }
 
-        $wall_response = $this->getContent($connector, "wall.get");
-        if (property_exists($wall_response, 'error')) {
-            throw new APIError($wall_response->error->error_msg,
-                $wall_response->error->error_code,
-                $connector->getLastUrl());
-        }
-
         $feed = new FeedWriter(RSS2);
         $id = $this->domain ? $this->domain :
             ($this->owner_id > 0 ? 'id' . $this->owner_id : 'club' . abs($this->owner_id));
@@ -190,46 +183,58 @@ class Vk2rss
         $feed->setChannelElement('language', 'ru-ru');
         $feed->setChannelElement('pubDate', date(DATE_RSS, time()));
 
-        foreach ($wall_response->response->items as $post) {
-            if ($this->owner_only && $post->owner_id != $post->from_id) {
-                continue;
-            }
-            $new_item = $feed->createNewItem();
-            $new_item->setLink("https://vk.com/wall{$post->owner_id}_{$post->id}");
-            $new_item->addElement('guid', "https://vk.com/wall{$post->owner_id}_{$post->id}");
-            $new_item->setDate($post->date);
 
-            $description = array();
-            $this->extractDescription($description, $post);
-            if ($description[0] === self::VERTICAL_DELIMITER) {
-                array_shift($description);
+        for ($offset = 0; $offset < $this->count; $offset += 100) {
+            sleep(1);
+            $wall_response = $this->getContent($connector, "wall.get", $offset);
+            if (property_exists($wall_response, 'error')) {
+                throw new APIError($wall_response->error->error_msg,
+                                   $wall_response->error->error_code,
+                                   $connector->getLastUrl());
             }
 
-            foreach ($description as &$paragraph) {
-                $paragraph = preg_replace('/\[[^|]+\|([^\]]+)\]/u', '$1', $paragraph); // remove internal vk links like [id123|Name]
+            foreach ($wall_response->response->items as $post) {
+                if ($this->owner_only && $post->owner_id != $post->from_id) {
+                    continue;
+                }
+                $new_item = $feed->createNewItem();
+                $new_item->setLink("https://vk.com/wall{$post->owner_id}_{$post->id}");
+                $new_item->addElement('guid', "https://vk.com/wall{$post->owner_id}_{$post->id}");
+                $new_item->setDate($post->date);
+
+                $description = array();
+                $this->extractDescription($description, $post);
+                if ($description[0] === self::VERTICAL_DELIMITER) {
+                    array_shift($description);
+                }
+
+                foreach ($description as &$paragraph) {
+                    $paragraph = preg_replace('/\[[^|]+\|([^\]]+)\]/u', '$1', $paragraph); // remove internal vk links like [id123|Name]
+                }
+
+                $imploded_description = implode($this->disable_html ? PHP_EOL : '<br/>', $description);
+                $new_item->setDescription($imploded_description);
+
+                if (!is_null($this->include) && preg_match('/' . $this->include . '/iu', $imploded_description) !== 1) {
+                    continue;
+                }
+                if (!is_null($this->exclude) && preg_match('/' . $this->exclude . '/iu', $imploded_description) !== 0) {
+                    continue;
+                }
+
+                $new_item->addElement('title', $this->getTitle($description));
+
+                $hash_tags = array();
+                preg_match_all('/' . self::HASH_TAG_PATTERN . '/u', implode(' ', $description), $hash_tags);
+
+                foreach ($hash_tags[1] as $hash_tag) {
+                    $new_item->addElement('category', $hash_tag);
+                }
+
+                $feed->addItem($new_item);
             }
-
-            $imploded_description = implode($this->disable_html ? PHP_EOL : '<br/>', $description);
-            $new_item->setDescription($imploded_description);
-
-            if (!is_null($this->include) && preg_match('/' . $this->include . '/iu', $imploded_description) !== 1) {
-                continue;
-            }
-            if (!is_null($this->exclude) && preg_match('/' . $this->exclude . '/iu', $imploded_description) !== 0) {
-                continue;
-            }
-
-            $new_item->addElement('title', $this->getTitle($description));
-
-            $hash_tags = array();
-            preg_match_all('/' . self::HASH_TAG_PATTERN . '/u', implode(' ', $description), $hash_tags);
-
-            foreach ($hash_tags[1] as $hash_tag) {
-                $new_item->addElement('category', $hash_tag);
-            }
-
-            $feed->addItem($new_item);
         }
+
 
         $feed->generateFeed();
         mb_internal_encoding($outer_encoding);
@@ -353,10 +358,11 @@ class Vk2rss
      *
      * @param ConnectionWrapper $connector
      * @param string $api_method   API method name
+     * @param int $offset   offset for wall.get
      * @return mixed   Json VK response in appropriate PHP type
      * @throws Exception   If unsupported API method name is passed or data retrieving is failed
      */
-    protected function getContent($connector, $api_method)
+    protected function getContent($connector, $api_method, $offset = null)
     {
         $url = self::API_BASE_URL . $api_method . '?v=5.54';
         if (isset($this->access_token)) {
@@ -369,7 +375,12 @@ class Vk2rss
                 } else {
                     $url .= "&owner_id={$this->owner_id}";
                 }
-                $url .= "&count={$this->count}";
+                if (isset($offset)) {
+                    $count = min($this->count - $offset, 100);
+                    $url .= "&offset=${offset}&count=${count}";
+                } else {
+                    $url .= "&count={$this->count}";
+                }
                 break;
             case "users.get":
                 $url .= "&fields=first_name,last_name&user_ids=" . (!empty($this->domain) ? $this->domain : $this->owner_id);
