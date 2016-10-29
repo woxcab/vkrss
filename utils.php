@@ -28,8 +28,8 @@ class ProxyDescriptor
     public function __construct($address, $type = null, $login = null, $password = null)
     {
         $type = mb_strtolower($type);
-        $match = array();
-        preg_match('/^(?:(?P<type>[^:]+?):\/\/)?(?:(?<login>[^\/:]+):(?<password>[^\/@]+)@)?(?P<address>[^\/@]+?)\/?$/', $address, $match);
+        preg_match('/^(?:(?P<type>[^:]+?):\/\/)?(?:(?<login>[^\/:]+):(?<password>[^\/@]+)@)?(?P<address>[^\/@]+?)\/?$/',
+                   $address, $match);
         if (!empty($match['type'])) {
             $match['type'] = mb_strtolower($match['type']);
             if (!empty($type) && $match['type'] !== $type) {

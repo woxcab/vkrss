@@ -226,7 +226,6 @@ class Vk2rss
 
                 $new_item->addElement('title', $this->getTitle($description));
 
-                $hash_tags = array();
                 preg_match_all('/' . self::HASH_TAG_PATTERN . '/u', implode(' ', $description), $hash_tags);
 
                 foreach ($hash_tags[1] as $hash_tag) {
