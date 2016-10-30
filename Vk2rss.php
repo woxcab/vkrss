@@ -418,6 +418,12 @@ class Vk2rss
             $connector->closeConnection();
             throw new Exception("Failed to get content of URL ${url}: " . $exc->getMessage(), $exc->getCode());
         }
+        if (!$this->disable_html) {
+            $content = strtr($content, array('<' => '&lt;',
+                                             '>' => '&gt;',
+                                             '\"' => '&quot;',
+                                             '\'' => '&apos;'));
+        }
         return json_decode($content);
     }
 
@@ -432,6 +438,10 @@ class Vk2rss
         foreach ($description as &$paragraph) {
             if (!$this->disable_html) {
                 $paragraph = preg_replace('/<[^>]+?>/u', '', $paragraph); // remove all tags
+                $paragraph = strtr($paragraph, array('&lt;' => '<',
+                                                     '&gt;' => '>',
+                                                     '&quot;' => '"' ,
+                                                     '&apos;' => '\''));
             }
             $paragraph = trim(preg_replace(self::TEXTUAL_LINK_PATTERN, '', $paragraph));
         }
