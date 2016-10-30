@@ -159,9 +159,14 @@ class Vk2rss
             $title = $group->name;
             $feed_description = self::GROUP_FEED_DESCRIPTION_PREFIX . $group->name;
         } else {
-            $user_response = $this->getContent($connector, "users.get");
-            if (property_exists($user_response, 'error')) {
-                throw new APIError($user_response, $connector->getLastUrl());
+            try {
+                $user_response = $this->getContent($connector, "users.get");
+                if (property_exists($user_response, 'error')) {
+                    throw new APIError($user_response, $connector->getLastUrl());
+                }
+            } catch (APIError $exc) {
+                throw $exc->getApiErrorCode() == 113 ?
+                    new Exception("Invalid user or group identifier", 400) : $exc;
             }
             if (!empty($user_response->response)) {
                 $profile = $user_response->response[0];
