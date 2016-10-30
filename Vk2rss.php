@@ -425,7 +425,10 @@ class Vk2rss
     protected function getTitle($description)
     {
         foreach ($description as &$paragraph) {
-            $paragraph = preg_replace('/<[^>]+?>/u', '', $paragraph); // remove all tags
+            if (!$this->disable_html) {
+                $paragraph = preg_replace('/<[^>]+?>/u', '', $paragraph); // remove all tags
+            }
+            $paragraph = trim(preg_replace(self::TEXTUAL_LINK_PATTERN, '', $paragraph));
         }
         if (preg_match('/^\s*$/u', implode(PHP_EOL, $description)) === 1) {
             return self::EMPTY_POST_TITLE;
@@ -442,7 +445,6 @@ class Vk2rss
         $par_idx = 0;
 
         foreach ($description as $par_idx => &$paragraph) {
-            $paragraph = trim(preg_replace(self::TEXTUAL_LINK_PATTERN, '', $paragraph));
             if (preg_match('/^\s*(?:' . self::HASH_TAG_PATTERN . '\s*)*$/u', $paragraph) === 1 // paragraph contains only hash tags
                     || $paragraph === self::VERTICAL_DELIMITER) {
                 unset($description[$par_idx]);
