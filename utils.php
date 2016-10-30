@@ -378,7 +378,9 @@ class APIError extends Exception {
         $message = $error_response->error->error_msg;
         switch ($error_response->error->error_code) {
             case 5:
-                $message = "Access token is expired (probably by app session terminating). It is necessary to create new token. ${message}";
+                if (mb_strpos($message, "invalid session") !== false) {
+                    $message = "Access token is expired (probably by app session terminating). It is necessary to create new token. ${message}";
+                }
                 break;
             case 17:
                 $message .= ": {$error_response->error->redirect_uri}";
