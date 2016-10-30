@@ -340,6 +340,17 @@ class Vk2rss
                         $description = array_merge($description, $content, $video_description);
                         break;
                     }
+                    case 'page':
+                        if ($this->disable_html) {
+                            array_push($description,
+                                       self::VERTICAL_DELIMITER,
+                                       "{$attachment->page->title}: https://vk.com/page-{$attachment->page->group_id}_{$attachment->page->id}");
+                        } else {
+                            array_push($description,
+                                       self::VERTICAL_DELIMITER,
+                                       "<a href='https://vk.com/page-{$attachment->page->group_id}_{$attachment->page->id}'>{$attachment->page->title}</a>");
+                        }
+                        break;
                 }
             }
         }
