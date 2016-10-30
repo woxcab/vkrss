@@ -22,8 +22,10 @@ require_once('utils.php');
 class Vk2rss
 {
     const HASH_TAG_PATTERN = '#([а-яёА-ЯЁa-zA-Z0-9_]+)(?:@[a-zA-Z0-9_]+)?';
-    const TEXTUAL_LINK_PATTERN = '@\b(https?://\S+?)(?=[.,!?;:»”’"]?(?:\s|$))@u';
-    const TEXTUAL_LINK_REPLACE_PATTERN = '<a href=\'$1\'>$1</a>';
+    const TEXTUAL_LINK_PATTERN = '@(?:(\s*)\b(https?://\S+?)(?=[.,!?;:»”’"]?(?:\s|$))|(\()(https?://\S+?)(\))|(\([^(]*?)(\s*)\b(\s*https?://\S+?)([.,!?;:»”’"]?\s*\)))@u';
+    const TEXTUAL_LINK_REPLACE_PATTERN = '$1$3$6$7<a href=\'$2$4$8\'>$2$4$8</a>$5$9';
+    const TEXTUAL_LINK_REMOVE_PATTERN = '$3$6';
+
 
     /**
      * Delimiter of text from different parts of post
@@ -216,7 +218,12 @@ class Vk2rss
                 }
 
                 foreach ($description as &$paragraph) {
-                    $paragraph = preg_replace('/\[[^|]+\|([^\]]+)\]/u', '$1', $paragraph); // remove internal vk links like [id123|Name]
+                    // process internal short vk links like [id123|Name]
+                    if ($this->disable_html) {
+                        $paragraph = preg_replace('/\[([^|]+)\|([^\]]+)\]/u', '$2 (https://vk.com/$1)', $paragraph);
+                    } else {
+                        $paragraph = preg_replace('/\[([^|]+)\|([^\]]+)\]/u', '<a href="https://vk.com/$1">$2</a>', $paragraph);
+                    }
                 }
 
                 $imploded_description = implode($this->disable_html ? PHP_EOL : '<br/>', $description);
@@ -443,7 +450,7 @@ class Vk2rss
                                                      '&quot;' => '"' ,
                                                      '&apos;' => '\''));
             }
-            $paragraph = trim(preg_replace(self::TEXTUAL_LINK_PATTERN, '', $paragraph));
+            $paragraph = trim(preg_replace(self::TEXTUAL_LINK_PATTERN, self::TEXTUAL_LINK_REMOVE_PATTERN, $paragraph));
         }
         if (preg_match('/^\s*$/u', implode(PHP_EOL, $description)) === 1) {
             return self::EMPTY_POST_TITLE;
