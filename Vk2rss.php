@@ -122,8 +122,8 @@ class Vk2rss
             $this->domain = $id;
         }
         $this->count = $count;
-        $this->include = isset($include) ? preg_replace("/(?<!\\\)\//u", "\\/", $include) : null;
-        $this->exclude = isset($exclude) ? preg_replace("/(?<!\\\)\//u", "\\/", $exclude) : null;
+        $this->include = isset($include) && $include !== '' ? preg_replace("/(?<!\\\)\//u", "\\/", $include) : null;
+        $this->exclude = isset($exclude) && $exclude !== '' ? preg_replace("/(?<!\\\)\//u", "\\/", $exclude) : null;
         $this->disable_html = $disable_html;
         $this->owner_only = $owner_only;
         $this->access_token = $access_token;
@@ -229,10 +229,10 @@ class Vk2rss
                 $imploded_description = implode($this->disable_html ? PHP_EOL : '<br/>', $description);
                 $new_item->setDescription($imploded_description);
 
-                if (!is_null($this->include) && preg_match('/' . $this->include . '/iu', $imploded_description) !== 1) {
+                if (isset($this->include) && preg_match('/' . $this->include . '/iu', $imploded_description, $match) !== 1) {
                     continue;
                 }
-                if (!is_null($this->exclude) && preg_match('/' . $this->exclude . '/iu', $imploded_description) !== 0) {
+                if (isset($this->exclude) && preg_match('/' . $this->exclude . '/iu', $imploded_description) !== 0) {
                     continue;
                 }
 

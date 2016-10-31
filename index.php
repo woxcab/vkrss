@@ -2,12 +2,19 @@
 require_once('Vk2rss.php');
 header("Content-type: text/xml; charset=utf-8");
 
-
-$id = isset($_GET['id']) ? $_GET['id'] :
-        (isset($_GET['domain']) ? $_GET['domain'] :
-            (isset($_GET['owner_id']) ? $_GET['owner_id'] : null));
+$supported_parameters = array('id', 'domain', 'owner_id', 'count', 'include', 'exclude',
+                              'disable_html', 'owner_only', 'access_token',
+                              'proxy', 'proxy_type', 'proxy_login', 'proxy_password');
 
 try {
+    $diff = array_diff(array_keys($_GET), $supported_parameters);
+    if (!empty($diff)) {
+        throw new Exception("Unknown parameters: " . implode(', ', $diff)
+                            . ". Supported parameters: " . implode(', ', $supported_parameters), 400);
+    }
+    $id = isset($_GET['id']) ? $_GET['id'] :
+        (isset($_GET['domain']) ? $_GET['domain'] :
+            (isset($_GET['owner_id']) ? $_GET['owner_id'] : null));
     $vk2rss = new Vk2rss(
         $id,
         !empty($_GET['count']) ? $_GET['count'] : 20,
