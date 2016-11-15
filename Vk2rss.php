@@ -450,7 +450,11 @@ class Vk2rss
                                                      '&quot;' => '"' ,
                                                      '&apos;' => '\''));
             }
-            $paragraph = trim(preg_replace(self::TEXTUAL_LINK_PATTERN, self::TEXTUAL_LINK_REMOVE_PATTERN, $paragraph));
+            if ($paragraph === self::VERTICAL_DELIMITER) {
+                $paragraph = "";
+            } else {
+                $paragraph = trim(preg_replace(self::TEXTUAL_LINK_PATTERN, self::TEXTUAL_LINK_REMOVE_PATTERN, $paragraph));
+            }
         }
         if (preg_match('/^\s*$/u', implode(PHP_EOL, $description)) === 1) {
             return self::EMPTY_POST_TITLE;
