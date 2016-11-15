@@ -320,9 +320,11 @@ class Vk2rss
                                        self::VERTICAL_DELIMITER,
                                        "{$attachment->link->title}: {$attachment->link->url}");
                         } else {
+                            $link_text = preg_match($empty_string_regex, $attachment->link->title) === 0 ?
+                                $attachment->link->title : $attachment->link->url;
                             array_push($description,
                                        self::VERTICAL_DELIMITER,
-                                       "<a href='{$attachment->link->url}'>{$attachment->link->title}</a>");
+                                       "<a href='{$attachment->link->url}'>{$link_text}</a>");
                         }
                         if (preg_match($empty_string_regex, $attachment->link->description) === 0) {
                             array_push($description, $attachment->link->description);
