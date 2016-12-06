@@ -237,6 +237,7 @@ class Vk2rss
                 }
 
                 $new_item->addElement('title', $this->getTitle($description));
+                $new_item->addElement("slash:comments", $post->comments->count);
 
                 preg_match_all('/' . self::HASH_TAG_PATTERN . '/u', implode(' ', $description), $hash_tags);
 
