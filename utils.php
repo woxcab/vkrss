@@ -220,6 +220,7 @@ class ConnectionWrapper
             case self::BUILTIN_DOWNLOADER:
                 $opts = array();
                 $opts['http']['timeout'] = self::CONNECT_TIMEOUT;
+                $opts['http']['user_agent'] = 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:49.0) Gecko/20100101 Firefox/49.0';
                 if (isset($proxy)) {
                     $this->proxyType = $proxy->getType();
                     $address = $proxy->getAddress();
@@ -237,7 +238,9 @@ class ConnectionWrapper
             case self::CURL_DOWNLOADER:
                 $this->curlOpts = array(CURLOPT_RETURNTRANSFER => true,
                                         CURLOPT_HEADER => true,
-                                        CURLOPT_CONNECTTIMEOUT => self::CONNECT_TIMEOUT);
+                                        CURLOPT_CONNECTTIMEOUT => self::CONNECT_TIMEOUT,
+                                        CURLOPT_FOLLOWLOCATION => true,
+                                        CURLOPT_USERAGENT => 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:49.0) Gecko/20100101 Firefox/49.0');
                 if (isset($proxy)) {
                     $this->curlOpts[CURLOPT_PROXY] = $proxy->getAddress();
                     $this->proxyType = $proxy->getType();
@@ -300,10 +303,12 @@ class ConnectionWrapper
      * @param string|null $url    URL
      * @param string|null $https_url   URL with HTTPS protocol. If it's null then it's equal to $url where HTTP is replaced with HTTPS
      * @param bool $http_to_https   Whether to use HTTP URL with replacing its HTTP protocol on HTTPS protocol
+     * @param bool $use_http_post   Whether to use HTTP POST method
+     * @param array $post_params   Request parameters for POST method
      * @return mixed   Response body or FALSE on failure
      * @throws Exception   If HTTPS url is passed and PHP or its extension does not support OpenSSL
      */
-    public function getContent($url, $https_url = null, $http_to_https = false)
+    public function getContent($url, $https_url = null, $http_to_https = false, $use_http_post=false, $post_params=array())
     {
         if ($this->httpsAllowed && (!empty($https_url) || $http_to_https)) {
             $request_url = empty($https_url) ? preg_replace('/^http:/ui', 'https:', $url) : $https_url;
@@ -316,6 +321,12 @@ class ConnectionWrapper
         $this->lastUrl = $request_url;
         switch ($this->downloader) {
             case self::BUILTIN_DOWNLOADER:
+                if ($use_http_post) {
+                    $this->context['http']['method'] = 'POST';
+                    $this->context['http']['content'] = http_build_query($post_params);
+                } else {
+                    $this->context['http']['method'] = 'GET';
+                }
                 $body = @file_get_contents($request_url, false, $this->context);
                 $response_code = isset($http_response_header) ? (int)substr($http_response_header[0], 9, 3) : null;
                 if (empty($body)) {
@@ -329,7 +340,16 @@ class ConnectionWrapper
                 break;
             case self::CURL_DOWNLOADER:
                 curl_setopt($this->curlHandler, CURLOPT_URL, $request_url);
+                curl_setopt($this->curlHandler, CURLOPT_POST, $use_http_post);
+                if ($use_http_post) {
+                    curl_setopt($this->curlHandler, CURLOPT_POSTFIELDS, http_build_query($post_params));
+                }
                 $response = curl_exec($this->curlHandler);
+                if ($use_http_post) {
+                    file_put_contents('/var/www/dev/vkrss/responses.log',
+                                      'INTERMEDIATE RESPONSE: ' . PHP_EOL. PHP_EOL. $response. PHP_EOL. PHP_EOL. PHP_EOL,
+                                      FILE_APPEND);
+                }
                 if (empty($response)) {
                     throw new Exception("Cannot retrieve data from URL '${request_url}': " . curl_error($this->curlHandler));
                 }
@@ -343,7 +363,8 @@ class ConnectionWrapper
                 }
                 list($header, ) = explode("\r\n", $header, 2);
                 $response_code = (int)substr($header, 9, 3);
-                if ($response_code != 200) {
+                error_log($response_code);
+                if ($response_code != 200 && $response_code != 302) {
                     throw new Exception("Cannot retrieve data from URL '${request_url}': " . substr($header, 13), $response_code);
                 }
                 break;

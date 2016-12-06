@@ -95,7 +95,7 @@ class Vk2rss
     protected $proxy = null;
 
     public function __construct($id, $count = 20, $include = null, $exclude = null, $disable_html=false,
-                                $owner_only = false, $access_token = null,
+                                $owner_only = false, $access_token = null, $phone = null,
                                 $proxy = null, $proxy_type = null, $proxy_login = null, $proxy_password = null)
     {
         if (empty($id)) {
@@ -127,6 +127,7 @@ class Vk2rss
         $this->disable_html = $disable_html;
         $this->owner_only = $owner_only;
         $this->access_token = $access_token;
+        $this->phone = isset($phone) ? preg_replace('/\D+/u', '', $phone) : null;
         if (isset($proxy)) {
             try {
                 $this->proxy = new ProxyDescriptor($proxy, $proxy_type, $proxy_login, $proxy_password);
@@ -151,32 +152,32 @@ class Vk2rss
         $connector = new ConnectionWrapper($this->proxy);
 
         if (!empty($this->domain) || (!empty($this->owner_id) && $this->owner_id < 0)) {
-            $group_response = $this->getContent($connector, "groups.getById");
-            if (property_exists($group_response, 'error') && $group_response->error->error_code != 100) {
-                throw new APIError($group_response, $connector->getLastUrl());
+            try {
+                $group_response = $this->getContent($connector, "groups.getById");
+            } catch (APIError $exc) {
+                if ($exc->getApiErrorCode() != 100) {
+                    throw $exc;
+                }
             }
         }
-        if (isset($group_response) && !property_exists($group_response, 'error') && !empty($group_response->response)) {
+        if (isset($group_response) && !empty($group_response->response)) {
             $group = $group_response->response[0];
             $title = $group->name;
             $feed_description = self::GROUP_FEED_DESCRIPTION_PREFIX . $group->name;
         } else {
+            sleep(1);
             try {
                 $user_response = $this->getContent($connector, "users.get");
-                if (property_exists($user_response, 'error')) {
-                    throw new APIError($user_response, $connector->getLastUrl());
-                }
             } catch (APIError $exc) {
                 throw $exc->getApiErrorCode() == 113 ?
                     new Exception("Invalid user or group identifier", 400) : $exc;
             }
-            if (!empty($user_response->response)) {
-                $profile = $user_response->response[0];
-                $title = $profile->first_name . ' ' . $profile->last_name;
-                $feed_description = self::USER_FEED_DESCRIPTION_PREFIX . $profile->first_name . ' ' . $profile->last_name;
-            } else {
+            if (empty($user_response->response)) {
                 throw new Exception("Invalid user or group identifier", 400);
             }
+            $profile = $user_response->response[0];
+            $title = $profile->first_name . ' ' . $profile->last_name;
+            $feed_description = self::USER_FEED_DESCRIPTION_PREFIX . $profile->first_name . ' ' . $profile->last_name;
         }
 
         $feed = new FeedWriter(RSS2);
@@ -194,9 +195,6 @@ class Vk2rss
         for ($offset = 0; $offset < $this->count; $offset += 100) {
             sleep(1);
             $wall_response = $this->getContent($connector, "wall.get", $offset);
-            if (property_exists($wall_response, 'error')) {
-                throw new APIError($wall_response, $connector->getLastUrl());
-            }
 
             if (empty($wall_response->response->items)) {
                 break;
@@ -421,20 +419,60 @@ class Vk2rss
         }
         $connector->openConnection();
         $content = null;
-        try {
-            $content = $connector->getContent($url, null, true);
-            $connector->closeConnection();
-        } catch (Exception $exc) {
-            $connector->closeConnection();
-            throw new Exception("Failed to get content of URL ${url}: " . $exc->getMessage(), $exc->getCode());
+        for ($attempt = 0; $attempt < 2; $attempt++) {
+            try {
+                error_log("Attempt {$attempt}. URL {$url}");
+                $content = $connector->getContent($url, null, true);
+            } catch (Exception $exc) {
+                $connector->closeConnection();
+                throw new Exception("Failed to get content of URL ${url}: " . $exc->getMessage(), $exc->getCode());
+            }
+            if (!$this->disable_html) {
+                $content = strtr($content, array('<' => '&lt;',
+                                                 '>' => '&gt;',
+                                                 '\"' => '&quot;',
+                                                 '\'' => '&apos;'));
+            }
+            $response = json_decode($content);
+            if (is_null($response)) {
+                throw new Exception("Failed to decode content of URL ${url}", 500);
+            }
+            if (!property_exists($response, 'error')) {
+                break;
+            }
+            $error = new APIError($response, $url);
+            if ($error->getApiErrorCode() != 17) {
+                throw $error;
+            }
+            $valid_resp = $connector->getContent($response->error->redirect_uri, null, true);
+            file_put_contents('/var/www/dev/vkrss/responses.log',
+                              "Got API Error 17. Opened redirect_uri {$response->error->redirect_uri}. "
+                      . "FIRST RESPONSE: " . PHP_EOL. PHP_EOL . $valid_resp. PHP_EOL. PHP_EOL. PHP_EOL,
+                              FILE_APPEND);
+            if (mb_strlen($valid_resp) > 300) {
+                if (!isset($this->phone) || $attempt > 0) {
+                    throw $error;
+                }
+//                parse_str(parse_url($response->error->redirect_uri, PHP_URL_QUERY), $redirect_params);
+                preg_match('/form method="post" action="([^"]+)"/u', $valid_resp, $match);
+                $valid_url = 'https://vk.com' . $match[1];
+                preg_match_all('/"field_prefix">\D*(\d+)/u', $valid_resp, $match);
+                if (mb_substr($this->phone, 0, mb_strlen($match[1][0])) !== $match[1][0]
+                    || mb_substr($this->phone, -mb_strlen($match[1][1])) !== $match[1][1]) {
+                    throw new Exception("Invalid phone number {$this->phone}. "
+                                        . "The phone must starts with {$match[1][0]} and ends with {$match[1][1]}",
+                                        400);
+                }
+                $post_params = array('code' => mb_substr($this->phone, mb_strlen($match[1][0]), -mb_strlen($match[1][1])));
+                $valid_resp = $connector->getContent($valid_url, null, true, true, $post_params);
+                file_put_contents('/var/www/dev/vkrss/responses.log',
+                                  "SENT POST request with phone. SECOND RESPONSE: " . PHP_EOL. PHP_EOL. $valid_resp. PHP_EOL. PHP_EOL. PHP_EOL,
+                                  FILE_APPEND);
+            }
+            sleep(1);
         }
-        if (!$this->disable_html) {
-            $content = strtr($content, array('<' => '&lt;',
-                                             '>' => '&gt;',
-                                             '\"' => '&quot;',
-                                             '\'' => '&apos;'));
-        }
-        return json_decode($content);
+        $connector->closeConnection();
+        return $response;
     }
 
     /**

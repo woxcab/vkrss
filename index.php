@@ -3,7 +3,7 @@ require_once('Vk2rss.php');
 header("Content-type: text/xml; charset=utf-8");
 
 $supported_parameters = array('id', 'domain', 'owner_id', 'count', 'include', 'exclude',
-                              'disable_html', 'owner_only', 'access_token',
+                              'disable_html', 'owner_only', 'access_token', 'phone',
                               'proxy', 'proxy_type', 'proxy_login', 'proxy_password');
 
 try {
@@ -23,6 +23,7 @@ try {
         isset($_GET['disable_html']),
         isset($_GET['owner_only']),
         isset($_GET['access_token']) ? $_GET['access_token'] : null,
+        isset($_GET['phone']) ? $_GET['phone'] : null,
         isset($_GET['proxy']) ? $_GET['proxy'] : null,
         isset($_GET['proxy_type']) ?  mb_strtolower($_GET['proxy_type']) : null,
         isset($_GET['proxy_login']) ? $_GET['proxy_login'] : null,
