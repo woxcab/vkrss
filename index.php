@@ -30,7 +30,9 @@ try {
     $vk2rss->generateRSS();
 } catch (APIError $exc) {
     http_response_code($exc->getCode());
-    die("API Error {$exc->getApiErrorCode()}: {$exc->getMessage()}. Request URL: {$exc->getRequestUrl()}" . PHP_EOL);
+    $msg = "API Error {$exc->getApiErrorCode()}: {$exc->getMessage()}. Request URL: {$exc->getRequestUrl()}" . PHP_EOL;
+    error_log($msg);
+    die($msg);
 } catch (Exception $exc) {
     if (function_exists('http_response_code')) {
         http_response_code($exc->getCode());
@@ -40,8 +42,9 @@ try {
                           407 => '407 Proxy Authentication Required',
                           500 => '500 Internal Server Error',
                           503 => '503 Service Unavailable',
-                          504 => '503 Gateway Time-out');
+                          504 => '504 Gateway Time-out');
         header('HTTP/1.1 ' . $statuses[$exc->getCode()]);
     }
+    error_log($exc->getMessage() . PHP_EOL);
     die($exc->getMessage() . PHP_EOL);
 }
