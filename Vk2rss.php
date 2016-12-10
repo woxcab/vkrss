@@ -403,12 +403,13 @@ class Vk2rss
                 } else {
                     $url .= "&owner_id={$this->owner_id}";
                 }
-                if (isset($offset)) {
+                if (!empty($offset)) {
                     $count = min($this->count - $offset, 100);
-                    $url .= "&offset=${offset}&count=${count}";
+                    $url .= "&offset=${offset}";
                 } else {
-                    $url .= "&count={$this->count}";
+                    $count = min($this->count, 100);
                 }
+                $url .= "&count={$count}";
                 break;
             case "users.get":
                 $url .= "&fields=first_name,last_name&user_ids=" . (!empty($this->domain) ? $this->domain : $this->owner_id);
