@@ -273,7 +273,8 @@ class Vk2rss
             foreach ($post->attachments as $attachment) {
                 switch ($attachment->type) {
                     case 'photo': {
-                        $photo_sizes = array_values(preg_grep('/^photo_/u', array_keys(get_object_vars($attachment->photo))));
+                        $photo_sizes = array_values(preg_grep('/^photo_/u',
+                                                              array_keys(get_object_vars($attachment->photo))));
                         $photo_text = preg_replace('|^Original: https?://\S+\s*|u',
                                                    '',
                                                    $attachment->photo->text);
@@ -284,8 +285,8 @@ class Vk2rss
                                                        $photo_text);
                         }
                         $huge_photo_src = $attachment->photo->{end($photo_sizes)};
-                        $photo = $this->disable_html ?
-                            $huge_photo_src : "<a href='{$huge_photo_src}'><img src='{$attachment->photo->{$photo_sizes[2]}}'/></a>";
+                        $photo = $this->disable_html ? $huge_photo_src
+                            : "<a href='{$huge_photo_src}'><img src='{$attachment->photo->{$photo_sizes[2]}}'/></a>";
                         if (preg_match($empty_string_regex, $photo_text) === 0) {
                             $description = array_merge($description,
                                                        array(self::VERTICAL_DELIMITER),
@@ -294,6 +295,32 @@ class Vk2rss
                         } else {
                             array_push($description, $photo);
                         }
+                        break;
+                    }
+                    case 'album': {
+                        $thumb_sizes = array_values(preg_grep('/^photo_/u',
+                                                              array_keys(get_object_vars($attachment->album->thumb))));
+                        $album_title = $attachment->album->title;
+                        $album_url = "https://vk.com/album" . $attachment->album->owner_id . "_" . $attachment->album->id;
+                        array_push($description, self::VERTICAL_DELIMITER);
+                        if ($this->disable_html) {
+                            array_push($description, "Альбом «" . $album_title . "»: " . $album_url);
+                        } else {
+                            array_push($description, "<a href='" . $album_url . "'>Альбом «" . $album_title . "»</a>" );
+                        }
+                        $album_description = $attachment->album->description;
+                        if (!$this->disable_html) {
+                            $album_description = preg_replace(self::TEXTUAL_LINK_PATTERN,
+                                                       self::TEXTUAL_LINK_REPLACE_PATTERN,
+                                                       $album_description);
+                        }
+                        if (preg_match($empty_string_regex, $album_description) === 0) {
+                            array_push($description, preg_split($par_split_regex, $album_description));
+                        }
+                        $huge_thumb_src = $attachment->album->thumb->{end($thumb_sizes)};
+                        $thumb = $this->disable_html ? $huge_thumb_src
+                            : "<a href='{$huge_thumb_src}'><img src='{$attachment->album->thumb->{$thumb_sizes[2]}}'/></a>";
+                        array_push($description, $thumb);
                         break;
                     }
                     case 'audio': {
