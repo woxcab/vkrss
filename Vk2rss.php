@@ -368,7 +368,11 @@ class Vk2rss
                         }
                         $video_description = preg_match($empty_string_regex, $video_text) === 1 ?
                             array() : preg_split($par_split_regex, $video_text);
-                        $content = array("Видеозапись «{$attachment->video->title}»:");
+                        if (empty($attachment->video->title)) {
+                            $content = array("Видеозапись:");
+                        } else {
+                            $content = array("Видеозапись «{$attachment->video->title}»:");
+                        }
                         if ($video_description) {
                             array_unshift($content, self::VERTICAL_DELIMITER);
                         }
