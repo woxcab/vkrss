@@ -335,10 +335,24 @@ class Vk2rss
                         break;
                     }
                     case 'doc': {
-                        if ($this->disable_html) {
-                            array_push($description, "Файл «{$attachment->doc->title}»: {$attachment->doc->url}");
+                        $url = str_replace("&api=1", "", $attachment->doc->url);
+                        if (!empty($attachment->doc->preview->photo)) {
+                            $photos = $attachment->doc->preview->photo->sizes;
+                            $preview_url = $photos[min(2, count($photos)-1)]->src;
+                            $photo_url = end($photos)->src;
+                            if ($this->disable_html) {
+                                array_push($description, "Изображение «{$attachment->doc->title}»: {$photo_url} ({$url})");
+                            } else {
+                                array_push($description,
+                                           self::VERTICAL_DELIMITER,
+                                           "<a href='{$url}'>Изображение «{$attachment->doc->title}»</a>: <a href='{$photo_url}'><img src='{$preview_url}'/></a>");
+                            }
                         } else {
-                            array_push($description, "<a href='{$attachment->doc->url}'>Файл «{$attachment->doc->title}»</a>");
+                            if ($this->disable_html) {
+                                array_push($description, "Файл «{$attachment->doc->title}»: {$url}");
+                            } else {
+                                array_push($description, "<a href='{$url}'>Файл «{$attachment->doc->title}»</a>");
+                            }
                         }
                         break;
                     }
