@@ -491,7 +491,12 @@ class Vk2rss
      */
     protected function getTitle($description)
     {
-        foreach ($description as &$paragraph) {
+        foreach ($description as $par_idx => &$paragraph) {
+            if (preg_match('/^\s*(?:' . self::HASH_TAG_PATTERN . '\s*)*$/u', $paragraph) === 1 // paragraph contains only hash tags
+                || $paragraph === self::VERTICAL_DELIMITER) {
+                unset($description[$par_idx]);
+                continue;
+            }
             if (!$this->disable_html) {
                 $paragraph = preg_replace('/<[^>]+?>/u', '', $paragraph); // remove all tags
                 $paragraph = strtr($paragraph, array('&lt;' => '<',
@@ -520,11 +525,6 @@ class Vk2rss
         $par_idx = 0;
 
         foreach ($description as $par_idx => &$paragraph) {
-            if (preg_match('/^\s*(?:' . self::HASH_TAG_PATTERN . '\s*)*$/u', $paragraph) === 1 // paragraph contains only hash tags
-                    || $paragraph === self::VERTICAL_DELIMITER) {
-                unset($description[$par_idx]);
-                continue;
-            }
             // hash tags (if exist) are semantic part of paragraph
             $paragraph = preg_replace_callback('/' . self::HASH_TAG_PATTERN . '/u',
                                                'remove_underscores_from_hash_tag', # anonymous function only in PHP>=5.3.0
