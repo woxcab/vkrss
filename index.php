@@ -7,6 +7,11 @@ $supported_parameters = array('id', 'domain', 'owner_id', 'count', 'include', 'e
                               'proxy', 'proxy_type', 'proxy_login', 'proxy_password');
 
 try {
+    $params = array_keys($_GET);
+    $matched_params = preg_grep('/index[._]php$/u', $params);
+    if (!empty($matched_params)) {
+        unset($_GET[$matched_params[0]]);
+    }
     $diff = array_diff(array_keys($_GET), $supported_parameters);
     if (!empty($diff)) {
         throw new Exception("Unknown parameters: " . implode(', ', $diff)
