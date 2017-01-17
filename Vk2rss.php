@@ -220,9 +220,9 @@ class Vk2rss
                 foreach ($description as &$paragraph) {
                     // process internal short vk links like [id123|Name]
                     if ($this->disable_html) {
-                        $paragraph = preg_replace('/\[([^|]+)\|([^\]]+)\]/u', '$2 (https://vk.com/$1)', $paragraph);
+                        $paragraph = preg_replace('/\[([a-zA-Z0-9_]+)\|([^\]]+)\]/u', '$2 (https://vk.com/$1)', $paragraph);
                     } else {
-                        $paragraph = preg_replace('/\[([^|]+)\|([^\]]+)\]/u', '<a href="https://vk.com/$1">$2</a>', $paragraph);
+                        $paragraph = preg_replace('/\[([a-zA-Z0-9_]+)\|([^\]]+)\]/u', '<a href="https://vk.com/$1">$2</a>', $paragraph);
                     }
                 }
 
