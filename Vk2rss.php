@@ -315,7 +315,7 @@ class Vk2rss
                                                        $album_description);
                         }
                         if (preg_match($empty_string_regex, $album_description) === 0) {
-                            array_push($description, preg_split($par_split_regex, $album_description));
+                            $description = array_merge($description, preg_split($par_split_regex, $album_description));
                         }
                         $huge_thumb_src = $attachment->album->thumb->{end($thumb_sizes)};
                         $thumb = $this->disable_html ? $huge_thumb_src
