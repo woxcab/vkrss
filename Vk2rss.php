@@ -25,6 +25,7 @@ class Vk2rss
     const TEXTUAL_LINK_PATTERN = '@(?:(\s*)\b(https?://\S+?)(?=[.,!?;:»”’"]?(?:\s|$))|(\()(https?://\S+?)(\))|(\([^(]*?)(\s*)\b(\s*https?://\S+?)([.,!?;:»”’"]?\s*\)))@u';
     const TEXTUAL_LINK_REPLACE_PATTERN = '$1$3$6$7<a href=\'$2$4$8\'>$2$4$8</a>$5$9';
     const TEXTUAL_LINK_REMOVE_PATTERN = '$3$6';
+    const EMPTY_STRING_PATTERN = '@^(?:[\s ]*(?:<br/?>|\n)+[\s ]*)*$@u';
 
 
     /**
@@ -249,7 +250,6 @@ class Vk2rss
             }
         }
 
-
         $feed->generateFeed();
         mb_internal_encoding($outer_encoding);
     }
@@ -257,9 +257,8 @@ class Vk2rss
     protected function extractDescription(&$description, $post)
     {
         $par_split_regex = '@[\s ]*?(?:<br/?>|\n)+[\s ]*?@u'; # PHP 5.2.X: \s does not contain non-break space
-        $empty_string_regex = '@^(?:[\s ]*(?:<br/?>|\n)+[\s ]*)*$@u';
 
-        if (preg_match($empty_string_regex, $post->text) === 0) {
+        if (preg_match(self::EMPTY_STRING_PATTERN, $post->text) === 0) {
             $post_text = $post->text;
             if (!$this->disable_html) {
                 $post_text = preg_replace(self::TEXTUAL_LINK_PATTERN,
@@ -287,7 +286,7 @@ class Vk2rss
                         $huge_photo_src = $attachment->photo->{end($photo_sizes)};
                         $photo = $this->disable_html ? $huge_photo_src
                             : "<a href='{$huge_photo_src}'><img src='{$attachment->photo->{$photo_sizes[2]}}'/></a>";
-                        if (preg_match($empty_string_regex, $photo_text) === 0) {
+                        if (preg_match(self::EMPTY_STRING_PATTERN, $photo_text) === 0) {
                             $description = array_merge($description,
                                                        array(self::VERTICAL_DELIMITER),
                                                        preg_split($par_split_regex, $photo_text),
@@ -314,7 +313,7 @@ class Vk2rss
                                                        self::TEXTUAL_LINK_REPLACE_PATTERN,
                                                        $album_description);
                         }
-                        if (preg_match($empty_string_regex, $album_description) === 0) {
+                        if (preg_match(self::EMPTY_STRING_PATTERN, $album_description) === 0) {
                             $description = array_merge($description, preg_split($par_split_regex, $album_description));
                         }
                         $huge_thumb_src = $attachment->album->thumb->{end($thumb_sizes)};
@@ -362,13 +361,13 @@ class Vk2rss
                                        self::VERTICAL_DELIMITER,
                                        "{$attachment->link->title}: {$attachment->link->url}");
                         } else {
-                            $link_text = preg_match($empty_string_regex, $attachment->link->title) === 0 ?
+                            $link_text = preg_match(self::EMPTY_STRING_PATTERN, $attachment->link->title) === 0 ?
                                 $attachment->link->title : $attachment->link->url;
                             array_push($description,
                                        self::VERTICAL_DELIMITER,
                                        "<a href='{$attachment->link->url}'>{$link_text}</a>");
                         }
-                        if (preg_match($empty_string_regex, $attachment->link->description) === 0) {
+                        if (preg_match(self::EMPTY_STRING_PATTERN, $attachment->link->description) === 0) {
                             array_push($description, $attachment->link->description);
                         }
                         break;
@@ -380,7 +379,7 @@ class Vk2rss
                                                        self::TEXTUAL_LINK_REPLACE_PATTERN,
                                                        $video_text);
                         }
-                        $video_description = preg_match($empty_string_regex, $video_text) === 1 ?
+                        $video_description = preg_match(self::EMPTY_STRING_PATTERN, $video_text) === 1 ?
                             array() : preg_split($par_split_regex, $video_text);
                         if (empty($attachment->video->title)) {
                             $content = array("Видеозапись:");
@@ -522,7 +521,7 @@ class Vk2rss
         }
 
         $curr_title_length = 0;
-        $par_idx = 0;
+        $slice_length = 0;
 
         foreach ($description as $par_idx => &$paragraph) {
             // hash tags (if exist) are semantic part of paragraph
@@ -530,19 +529,25 @@ class Vk2rss
                                                'remove_underscores_from_hash_tag', # anonymous function only in PHP>=5.3.0
                                                $paragraph);
 
-            if ($curr_title_length < self::MAX_TITLE_LENGTH
-                    && (mb_strlen($paragraph) >= self::MIN_PARAGRAPH_LENGTH_FOR_TITLE
-                    || $curr_title_length + self::MIN_PARAGRAPH_LENGTH_FOR_TITLE < self::MAX_TITLE_LENGTH)) {
-                if (!in_array(mb_substr($paragraph, -1), array('.', '!', '?', ',', ':', ';'))) {
-                    $paragraph .= '.';
+            if ($curr_title_length < self::MAX_TITLE_LENGTH) {
+                if (preg_match(self::EMPTY_STRING_PATTERN, $paragraph) === 1) {
+                    unset($description[$par_idx]);
+                    continue;
                 }
-                $curr_title_length += mb_strlen($paragraph);
-            } else {
-                break;
+                if(mb_strlen($paragraph) >= self::MIN_PARAGRAPH_LENGTH_FOR_TITLE
+                   || $curr_title_length + self::MIN_PARAGRAPH_LENGTH_FOR_TITLE < self::MAX_TITLE_LENGTH) {
+                    if (!in_array(mb_substr($paragraph, -1), array('.', '!', '?', ',', ':', ';'))) {
+                        $paragraph .= '.';
+                    }
+                    $curr_title_length += mb_strlen($paragraph);
+                    $slice_length += 1;
+                } else {
+                    break;
+                }
             }
         }
 
-        $full_title = implode(' ', array_slice($description, 0, $par_idx + 1));
+        $full_title = implode(' ', array_slice($description, 0, $slice_length));
         if (mb_strlen($full_title) > self::MAX_TITLE_LENGTH) {
             $split = preg_split('/\s+/u', utf8_strrev(mb_substr($full_title, 0, self::MAX_TITLE_LENGTH)), 2);
             $full_title = utf8_strrev($split[1]);
