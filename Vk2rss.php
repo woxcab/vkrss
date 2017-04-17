@@ -96,8 +96,9 @@ class Vk2rss
     protected $proxy = null;
 
     public function __construct($id, $count = 20, $include = null, $exclude = null, $disable_html=false,
-                                $owner_only = false, $access_token = null,
-                                $proxy = null, $proxy_type = null, $proxy_login = null, $proxy_password = null)
+                                $owner_only = false, $non_owner_only = false, $access_token = null,
+                                $proxy = null, $proxy_type = null, $proxy_login = null, $proxy_password = null,
+                                $allow_signed = null, $skip_ads = false)
     {
         if (empty($id)) {
             throw new Exception("Empty identifier of user or group is passed", 400);
@@ -127,6 +128,9 @@ class Vk2rss
         $this->exclude = isset($exclude) && $exclude !== '' ? preg_replace("/(?<!\\\)\//u", "\\/", $exclude) : null;
         $this->disable_html = $disable_html;
         $this->owner_only = $owner_only;
+        $this->non_owner_only = $non_owner_only;
+        $this->allow_signed = $allow_signed;
+        $this->skip_ads = $skip_ads;
         $this->access_token = $access_token;
         if (isset($proxy)) {
             try {
@@ -204,7 +208,14 @@ class Vk2rss
             }
 
             foreach ($wall_response->response->items as $post) {
-                if ($this->owner_only && $post->owner_id != $post->from_id) {
+                if ($this->owner_only
+                        && ($post->owner_id != $post->from_id
+                            || !is_null($this->allow_signed) && property_exists($post, 'signer_id')
+                                && !$this->allow_signed)
+                    || $this->non_owner_only && $post->owner_id == $post->from_id
+                            && (is_null($this->allow_signed) || !property_exists($post, 'signer_id')
+                                || !$this->allow_signed)
+                    || $this->skip_ads && $post->marked_as_ads) {
                     continue;
                 }
                 $new_item = $feed->createNewItem();

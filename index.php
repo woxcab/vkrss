@@ -3,8 +3,9 @@ require_once('Vk2rss.php');
 header("Content-type: text/xml; charset=utf-8");
 
 $supported_parameters = array('id', 'domain', 'owner_id', 'count', 'include', 'exclude',
-                              'disable_html', 'owner_only', 'access_token',
-                              'proxy', 'proxy_type', 'proxy_login', 'proxy_password');
+                              'disable_html', 'owner_only', 'non_owner_only', 'not_owner_only', 'access_token',
+                              'proxy', 'proxy_type', 'proxy_login', 'proxy_password',
+                              'allow_signed', 'skip_ads');
 
 try {
     $params = array_keys($_GET);
@@ -27,11 +28,17 @@ try {
         isset($_GET['exclude']) ? $_GET['exclude'] : null,
         isset($_GET['disable_html']),
         isset($_GET['owner_only']),
+        isset($_GET['non_owner_only']) || isset($_GET['not_owner_only']),
         isset($_GET['access_token']) ? $_GET['access_token'] : null,
         isset($_GET['proxy']) ? $_GET['proxy'] : null,
         isset($_GET['proxy_type']) ?  mb_strtolower($_GET['proxy_type']) : null,
         isset($_GET['proxy_login']) ? $_GET['proxy_login'] : null,
-        isset($_GET['proxy_password']) ? $_GET['proxy_password'] : null);
+        isset($_GET['proxy_password']) ? $_GET['proxy_password'] : null,
+        isset($_GET['allow_signed']) ?
+            ($_GET['allow_signed'] === ""
+                || (mb_strtolower($_GET['allow_signed']) === "false" ? false : $_GET['allow_signed']))
+            : null,
+        isset($_GET['skip_ads']));
     $vk2rss->generateRSS();
 } catch (APIError $exc) {
     http_response_code($exc->getCode());
