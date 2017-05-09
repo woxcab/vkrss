@@ -339,7 +339,12 @@ class Vk2rss
                         break;
                     }
                     case 'doc': {
-                        $url = str_replace("&api=1", "", $attachment->doc->url);
+                        $url = parse_url($attachment->doc->url);
+                        parse_str($url['query'], $params);
+                        unset($params['api']);
+                        unset($params['dl']);
+                        $url['query'] = http_build_query($params);
+                        $url = build_url($url);
                         if (!empty($attachment->doc->preview->photo)) {
                             $photos = $attachment->doc->preview->photo->sizes;
                             $preview_url = $photos[min(2, count($photos)-1)]->src;
