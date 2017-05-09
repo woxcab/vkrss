@@ -335,12 +335,14 @@ class Vk2rss
                     }
                     case 'audio': {
                         $title = "Аудиозапись {$attachment->audio->artist} — «{$attachment->audio->title}»";
-                        if ($this->disable_html) {
-                            array_push($description, $title, $attachment->audio->url);
-                        } else {
-                            array_push($description,
-                                       $title,
-                                       "<audio controls><source src='{$attachment->audio->url}' type='audio/mpeg'/><a href='{$attachment->audio->url}'>Загрузить</a></audio>");
+                        array_push($description, $title);
+                        if ($this->access_token) {
+                            if ($this->disable_html) {
+                                array_push($description, $attachment->audio->url);
+                            } else {
+                                array_push($description,
+                                           "<audio controls><source src='{$attachment->audio->url}' type='audio/mpeg'/><a href='{$attachment->audio->url}'>Загрузить</a></audio>");
+                            }
                         }
                         break;
                     }
