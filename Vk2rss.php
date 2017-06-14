@@ -86,7 +86,8 @@ class Vk2rss
      */
     protected $owner_only;
     /**
-     * @var string|null   Token for access to closed walls that opened for token creator
+     * @var string|null   Service token for access to opened walls (there's in app settings)
+     *                    or user access token for access to closed walls that opened for token creator
      */
     protected $access_token;
 
@@ -100,8 +101,8 @@ class Vk2rss
                                 $proxy = null, $proxy_type = null, $proxy_login = null, $proxy_password = null,
                                 $allow_signed = null, $skip_ads = false)
     {
-        if (empty($id)) {
-            throw new Exception("Empty identifier of user or group is passed", 400);
+        if (empty($id) || empty($access_token)) {
+            throw new Exception("Empty identifier of user or group or empty access/service token is passed", 400);
         }
 
         if (strcmp(substr($id, 0, 2), 'id') === 0 && ctype_digit(substr($id, 2))) {
