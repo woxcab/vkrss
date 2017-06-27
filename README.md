@@ -1,39 +1,267 @@
-# Generating RSS Feed for opened or closed wall of user or community (group, public page or event page) on vk.com
-# Генерация RSS-ленты открытой или закрытой стены пользователя или сообщества (группы, публичной страницы или мероприятия) во Вконтакте.
+[English](#eng) | [Russian](#rus)
+
+---
+
+# <a name="eng"></a> Generating RSS Feed for opened or closed wall of user or community (group, public page or event page) on vk.com
+
+## Features
+* Generating RSS feed of opened walls: data extraction from different
+  post parts (attachments included) and automatic title generation
+  of RSS items.
+* Also generating RSS feed of closed walls if there's access token
+  with offline permissions that's created by user who has access
+  to the closed wall. [See more here](#eng-user-access-token)
+  about user access token creating.
+* Feeding [arbitrary number](#eng-count) of posts.
+* Posts filtering [by author](#eng-owning): all posts, posts by community/profile owner
+  only or all posts except posts by community/profile owner.
+* Posts filtering by [signature presence](#eng-sign).
+* Posts filtering by [regular expression](#eng-regex) (PCRE notation)
+  matching and/or mismatching.
+* Optionally [ad posts skipping](#eng-ads) [disabled by default].
+* Extracting RSS categories from the post hash tags.
+* Optionally [HTML formatting](#eng-html) of RSS item description:
+  links, images, line breaks [enabled by default].
+* HTTPS, SOCKS4, SOCKS4A or SOCKS5 [proxy usage](#eng-proxy) is available.
+
+
+## Requirements
+* PHP>=5.2.2 (5.3.X, 5.4.X, 5.5.X, 5.6.X, 7.X included)
+  with installed `mbstring`, `json`, `pcre`, `openssl` bundled extensions.
+* Script prefers the built-in tools for the requests. 
+  If `allow_url_fopen` parameter is disabled in the PHP configuration
+  file or interpreter parameters and `cURL` PHP extension is installed
+  then script uses `cURL` for the requests.
+* If you want to use proxy server then 
+  * for HTTPS proxy: either `cURL`>=7.10 extension must be installed
+    **or** `allow_url_fopen` parameter must be enabled in the PHP configuration
+    file or interpreter parameters;
+  * for SOCKS5 proxy: `cURL`>=7.10 extension must be installed;
+  * for SOCKS4 proxy: PHP>=5.2.10 with `cURL`>=7.10 extension is required;
+  * for SOCKS4A proxy: PHP>=5.5.23 or PHP>=5.6.7 (7.X included)
+    with `cURL`>=7.18 extension is required.
+    
+If script returns page with non-200 HTTP status then some problem was occurred:
+detailed problem information is described in the script output
+and in the server/interpreter log.
+
+## Parameters
+`index.php` script accepts the below GET-parameters.
+
+`id` and `access_token` parameters are required, another parameters are optional.
+
+* [required] `id` is short name, ID number (community ID is started with `-` sign)
+  or full identifier (like idXXXX, clubXXXX, publicXXXX, eventXXXX) of profile or community.
+  Examples of a valid values:
+  * `123456`, `id123456` — both of these values identify the user profile with ID 123456,
+  * `-123456`, `club123456` — both of these values identify the group with ID 123456,
+  * `-123456`, `public123456` — both of these values identify the public page with ID 123456,
+  * `-123456`, `event123456` — both of these values identify the event with ID 123456,
+  * `apiclub` — value identifies the user profile or community with this short name.
+  
+  Deprecated `domain` and `owner_id` parameters are allowed and are identical to `id`.
+* [required] `access_token` is
+  * either service token that's specified in the app settings
+    (you can create your own standalone application
+    [here](https://vk.com/editapp?act=create), app can be off)
+    
+    Service token allows to fetch only opened for everyone walls.
+  * or [user access token with offline permissions](#eng-user-access-token)
+    
+    User access token allows to fetch both opened and closed walls that're opened for this user.
+    
+    If user terminates all sessions in the security settings
+    then him access token becomes invalid, in that case, user must create new access token.
+* <a name="eng-count"></a> `count` is number of processing posts starting with the last published post.
+  It's arbitrary amount including more than 100.  
+  If it's more 100 then multiple requests will be sent because
+  VK API allows to fetch no more than 100 posts at a time.
+  Delay between requests is equal to 1 sec in order to satisfy VK API limits
+  (no more than 3 requests per second).
+  
+  *Default value*: 20.
+  
+  If `owner_only`, `non_owner_only`, `include`, `exclude` or `skip_ads`
+  parameters are passed then amount of posts in the result RSS feed can be
+  less than `count` because some post can be skipped by these parameters.
+* <a name="eng-regex"></a> `include` is case insensitive regular expression (PCRE notation) 
+  that must match the post text. Another posts will be skipped. 
+  Symbol `/` **is not** required at the start and at the end of regular expression. 
+* `exclude` is case insensitive regular expression (PCRE notation) 
+  that must **not** match the post text. Another posts will be skipped. 
+  Symbol `/` **is not** required at the start and at the end of regular expression.
+* <a name="eng-html"></a> `disable_html` passing (including absent value) indicates
+  that RSS item descriptions must be without HTML formatting.
+  
+  *By default* HTML formatting is applied for links and images.
+* <a name="eng-owning"></a> `owner_only` passing (including absent value) indicates that RSS must
+  contain only posts that's
+  * published by community in the case of community wall;
+  
+    If `allow_signed` parameter with `false` value is also passed
+    then posts with signature (that's published by community) will be skipped.
+  * published by profile owner in the case of user wall.
+
+  *By default* [absent parameter] RSS feed contains all posts that passes another filters.
+* `non_owner_only` or `not_owner_only` passing (including absent value)
+  indicates that RSS must contain only posts that's
+  * not published by community in the case of community wall, i.e. published by users.
+  
+    If `allow_signed` parameter with `true` or absent value is also passed
+    then posts with signature (that's published by community)
+    will be included to the RSS feed.
+  * not published by profile owner in the case of user wall, i.e. published by another users.
+
+  *By default* [absent parameter] RSS feed contains all posts that passes another filters.
+* <a name="eng-sign"></a> `allow_signed` allows or disallows posts (that's published by community)
+  with signature when `owner_only` or `non_owner_only`/`not_owner_only`
+  parameter is passed.
+  
+  *By default* [absent parameter] RSS feed contains all posts that passes another filters.
+  
+  Allowed values: [absent value] (same as `true`), `true`, `false`,
+  `0` (same as `false`), `1` (same as `true`). Another values are interpreted as `true`.
+  * If `owner_only` is passed then `allow_signed` with `false` value doesn't include
+    posts with signature to the RSS feed.
+  * If `non_owner_only` or `not_owner_only` is passed
+    then `allow_signed` with `true` value includes posts
+    with signature to the RSS feed.
+* <a name="eng-ads"></a> `skip_ads` passing indicates that all marked as ad posts will be skipped.
+
+  *By default* [absent parameter] RSS feed contains all posts that passes another filters.
+  
+  **Note**: Some wall post that's marked as ad on the website,
+  VK API doesn't mark as ad, therefore some ad posts can be in the RSS feed.
+* <a name="eng-proxy"></a> `proxy` is proxy server address. Allowed value formats:
+  * `address`,
+  * `address:port`,
+  * `type://address`,
+  * `type://address:port`,
+  * `login:password@address`,
+  * `login:password@address:port`,
+  * `type://login:password@address`,
+  * `type://login:password@address:port`,
+  
+  where `address` is proxy domain or IP-address, `port` is proxy port,
+  `type` is proxy type (HTTPS, SOCKS4, SOCKS4A, SOCKS5),
+  `login` and `password` are login and password for proxy access if it's necessary.
+  
+  Proxy type, login and password can be passed through another parameters:
+  `proxy_type`, `proxy_login` and `proxy_password` respectively.
+
+## <a name="eng-user-access-token"></a> How To Get Permanent User Access Token
+[This authorization flow](https://vk.com/dev/authcode_flow_user) is
+preferred getting user access token for the server side access to the walls.
+
+1. Create your own standalone application [here](https://vk.com/editapp?act=create). 
+   Created app can be off because it does not matter for the API requests.
+2. Authorize necessary account on vk.com and go to the next URL
+
+   `https://oauth.vk.com/authorize?client_id=APP_ID&display=page&redirect_uri&scope=offline&response_type=code&v=5.54`
+
+   where replace `APP_ID` with application ID that's specified in the app settings.
+
+3. Confirm permissions. Remember the value of `code` GET-parameter
+   of the result URL in the browser address bar.
+
+4. Go to the URL
+
+   `https://oauth.vk.com/access_token?client_id=APP_ID&client_secret=APP_SECRET&redirect_uri&code=AUTH_CODE`
+
+   where replace `APP_ID` with application ID, replace `APP_SECRET`
+   with secure key that's specified in the app settings,
+   replace `AUTH_CODE` with `code` value from the previous step.
+   
+   The result JSON-response contains sought-for access token.
+
+Bonus: created app keeps API calls statistics so you can see it.
+
+**Attention**: If user terminates all sessions in him security settings
+then him access token becomes invalid, in that case, user must create
+new access token repeating steps 2-4.
+
+
+## Usage Examples
+```php
+index.php?id=apiclub&access_token=XXXXXXXXX
+index.php?id=-1&access_token=XXXXXXXXX
+index.php?id=id1&access_token=XXXXXXXXX
+index.php?id=club1&access_token=XXXXXXXXX
+index.php?id=club1&disable_html&access_token=XXXXXXXXX   # no HTML formatting in RSS item descriptions 
+index.php?id=apiclub&count=100&include=newsfeed&access_token=XXXXXXXXX   # feed contains only posts with substring 'newsfeed'
+index.php?id=apiclub&count=100&exclude=newsfeed&access_token=XXXXXXXXX   # feed contains only posts without substring 'newsfeed'
+index.php?id=apiclub&proxy=localhost:8080&access_token=XXXXXXXXX
+index.php?id=apiclub&proxy=localhost:8080&proxy_type=https&access_token=XXXXXXXXX
+index.php?id=apiclub&proxy=https%3A%2F%2Flocalhost:8080&access_token=XXXXXXXXX
+index.php?id=club1&owner_only&access_token=XXXXXXXXX   # feed contains only posts by community
+index.php?id=club1&owner_only&allow_signed=false&access_token=XXXXXXXXX   # feed contains only posts by community
+                                                                          # that's without signature
+index.php?id=club1&non_owner_only&access_token=XXXXXXXXX   # feed contains only posts by users
+index.php?id=club1&non_owner_only&allow_signed&access_token=XXXXXXXXX   # feed contains only posts by users 
+                                                                        # and community posts with signature
+index.php?id=-1&count=100&include=(new|wall|\d+)&access_token=XXXXXXXXX
+```
+**Note**: one parameter contains special characters in the last example,
+so URL-encoding can be required for the direct call: 
+```index.php?id=-1&count=100&include=(new%7Cwall%7C%5Cd%2B)&access_token=XXXXXXXXX```
+
+
+
+
+---
+
+# <a name="rus"></a> Генерация RSS-ленты открытой или закрытой стены пользователя или сообщества (группы, публичной страницы или мероприятия) во Вконтакте.
 
 
 ## Возможности:
-* Получение RSS-ленты открытых стен (не требующих авторизации): извлечение описания из разных частей (включая вложенные) и построение заголовков на основе описания.
-* Получение RSS-ленты закрытых стен при наличии токена с правами оффлайн-доступа, привязанного к профилю, которому открыт доступ к такой стене. [Ниже описан один из способов получения токена](#Как-получить-бессрочный-токен-для-доступа-к-стенам-которые-доступны-своему-профилю).
-* Получение произвольного количества записей со стены.
-* Получение записей, опубликованных от кого угодно, от имени сообщества/владельца страницы или ото всех, кроме сообщества/владельца страницы.
-* Фильтрация записей по соответствию и/или несоответствию регулярному выражению в стиле PCRE.
-* При желании исключение записей в сообществе, помеченных как реклама.
+* Получение RSS-ленты открытых стен: извлечение описания из разных частей
+  (включая вложенные) и построение заголовков на основе описания.
+* Также получение RSS-ленты закрытых стен при наличии токена с правами оффлайн-доступа,
+  привязанного к профилю, которому открыт доступ к такой стене.
+  [Ниже описан один из способов получения токена](#rus-user-access-token).
+* Получение [произвольного количества](#rus-count) записей со стены.
+* Получение записей, [опубликованных](#rus-owning) от кого угодно, от имени сообщества/
+  владельца страницы или ото всех, кроме сообщества/владельца страницы.
+* Фильтрация записей по наличию или отсутствию [подписи](#rus-sign).
+* Фильтрация записей по соответствию и/или несоответствию
+  [регулярному выражению](#rus-regex) в стиле PCRE.
+* При желании исключение записей в сообществе, помеченных как [реклама](#rus-ads)
+  [по умолчанию отключено].
 * Извлечение хеш-тегов в качестве RSS-категорий.
-* При желании HTML-форматирование всех видов ссылок, изображений, переносов строк.
-* Допустимо использование HTTP, HTTPS, SOCKS4, SOCKS4A или SOCKS5 прокси-сервера для запросов.
+* При желании [HTML-форматирование](#rus-html) всех видов ссылок, изображений,
+  переносов строк [по умолчанию включено].
+* Допустимо использование HTTPS, SOCKS4, SOCKS4A или SOCKS5
+  [прокси-сервера](#rus-proxy) для запросов.
 
 
 ## Требования
-* PHP>=5.2.2 (в т.ч. 5.3.X, 5.4.X, 5.5.X, 5.6.X, 7.0.X) с установленными по умолчанию поставляемыми расширениями `mbstring`, `json`, `pcre`.
-* Если необходимо, чтобы запросы отправлялись через HTTPS, то должно быть установлено расширение `openssl` у PHP.
-
-  В случае использования `access_token` наличие расширения `openssl` обязательно, т.к. запросы с `access_token` могут отправляться только через HTTPS-протокол.
-* Скрипт предпочитает использовать встроенные в PHP возможности по отправке запросов. Если у PHP отключена встроенная возможность загрузки файлов по URL (отключен параметр `allow_url_fopen` в конфигурации или параметрах интерпретатора), но при этом у PHP установлено расширение `cURL`, то именно оно будет использоваться для загрузки данных. 
+* PHP>=5.2.2 (в т.ч. 5.3.X, 5.4.X, 5.5.X, 5.6.X, 7.X) с установленными
+  по умолчанию поставляемыми расширениями `mbstring`, `json`, `pcre`, `openssl`.
+* Скрипт предпочитает использовать встроенные в PHP возможности по отправке запросов.
+  Если у PHP отключена встроенная возможность загрузки файлов по URL
+  (отключен параметр `allow_url_fopen` в конфигурации или параметрах интерпретатора),
+  но при этом у PHP установлено расширение `cURL`,
+  то именно оно будет использоваться для загрузки данных. 
 * Если необходимо использовать прокси-сервер, то в случае
-   * HTTP-прокси — в конфигурации или параметрах интерпретатора PHP должен быть включён параметр `allow_url_fopen` либо установлено расширение `cURL`>=7.10,
-   * HTTPS-прокси — необходимо расширение `openssl`, а также в конфигурации или параметрах интерпретатора PHP должен быть включён параметр `allow_url_fopen` либо установлено расширение `cURL`>=7.10,
+   * HTTPS-прокси — либо необходимо расширение `cURL`>=7.10, **либо**
+     в конфигурационном файле или параметрах интерпретатора PHP
+     должен быть включён параметр `allow_url_fopen`,
    * SOCKS5-прокси — необходимо расширение `cURL`>=7.10,
    * SOCKS4-прокси — необходим PHP>=5.2.10 с расширением `cURL`>=7.10,
-   * SOCKS4A-прокси — необходим PHP>=5.5.23 или PHP>=5.6.7 (включая 7.0.X) с расширением `cURL`>=7.18.
+   * SOCKS4A-прокси — необходим PHP>=5.5.23 или PHP>=5.6.7 (включая 7.X) с расширением `cURL`>=7.18.
 
-В случае каких-либо проблем вместо RSS-ленты выдается страница с HTTP-статусом, отличным от 200, и с описанием проблемы, а также создаётся запись в журнале ошибок сервера или интерпретатора.
+В случае каких-либо проблем вместо RSS-ленты выдается страница с HTTP-статусом,
+отличным от 200, и с описанием проблемы, а также создаётся запись в журнале ошибок сервера или интерпретатора.
 
 
-## Параметры:
+## Параметры
+Скрипт `index.php` принимает следующие GET-параметры.
+
 Параметры `id` и `access_token` обязательны, остальные необязательны.
 
-* [обязательный] `id` — короткое название, ID-номер (в случае сообщества ID начинается со знака `-`) или полный идентификатор человека/сообщества (в виде idXXXX, clubXXXX, publicXXXX, eventXXXX).  Примеры допустимых значений параметра `id`:
+* [обязательный] `id` — короткое название, ID-номер (в случае сообщества ID начинается со знака `-`)
+  или полный идентификатор человека/сообщества (в виде idXXXX, clubXXXX, publicXXXX, eventXXXX).
+  Примеры допустимых значений параметра `id`:
   * `123456`, `id123456` — оба значения указывают на одну и ту же страницу пользователя с ID 123456,
   * `-123456`, `club123456` — оба значения указывают на одну и ту же группу с ID 123456,
   * `-123456`, `public123456` — оба значения указывают на одну и ту же публичную страницу с ID 123456,
@@ -43,60 +271,95 @@
   Ради обратной совместимости допускается вместо `id` использовать `domain` или `owner_id`.
 
 * [обязательный] `access_token` — 
-   * Либо сервисный ключ доступа, который указан в настройках приложения (создать собственное standalone-приложение можно [по этой ссылке](https://vk.com/editapp?act=create)).
+   * Либо сервисный ключ доступа, который указан в настройках приложения
+     (создать собственное standalone-приложение можно
+     [по этой ссылке](https://vk.com/editapp?act=create), само приложение может быть выключено).
    
      Сервисный ключ доступа дает возможность получать записи только с открытых для всех стен.
-   * Либо [ключ доступа пользователя с правами оффлайн-доступа](#Как-получить-бессрочный-токен-для-доступа-к-стенам-которые-доступны-своему-профилю).
+   * Либо [ключ доступа пользователя с правами оффлайн-доступа](#rus-user-access-token).
 
-     Ключ доступа пользователя позволяет получать записи как с открытых, так и закрытых стен (но открытых для пользователя, который создал токен).
+     Ключ доступа пользователя позволяет получать записи как с открытых,
+     так и закрытых стен (но открытых для пользователя, который создал токен).
      
-     Если в настройках безопасности пользователя будут завершены все сессии, то ключ доступа пользователя станет невалидным — нужно сформировать токен заново.
+     Если в настройках безопасности пользователя будут завершены все сессии,
+     то ключ доступа пользователя станет невалидным — нужно сформировать токен заново.
 
-* `count` — количество обрабатываемых записей, начиная с последней опубликованной (произвольное количество, включая более 100, по умолчанию 20). Если значение больше 100, то будут отправляться несколько запросов для получения записей, т.к. за один запрос можно получить не более 100 записей; между запросами задержка минимум в 1 секунду, чтобы не превышать ограничения VK API (не более 3 запросов в секунду).
+* <a name="rus-count"></a> `count` — количество обрабатываемых записей, начиная с последней опубликованной
+  (произвольное количество, включая более 100, *по умолчанию 20*).
+  Если значение больше 100, то будут отправляться несколько запросов
+  для получения записей, т.к. за один запрос можно получить не более
+  100 записей; между запросами задержка минимум в 1 секунду, чтобы
+  не превышать ограничения VK API (не более 3 запросов в секунду).
 
-  Если дополнительно установлен параметр `owner_only`, `include` или `exclude`, то количество выводимых в RSS-ленте записей может быть меньше значения `count` за счет исключения записей, которые отсеиваются параметром `owner_only`, `include` или `exclude`.
-
-* `include` — регистронезависимое регулярное выражение в стиле PCRE, которое должно соответствовать тексту записи. В начале и в конце выражения символ `/` **не** нужен.
-* `exclude` — регистронезависимое регулярное выражение в стиле PCRE, которое **не** должно соответствовать тексту записи. В начале и в конце выражения символ `/` **не** нужен.
-* `disable_html` — если передан (можно без значения), то описание каждой записи не будет содержать никаких HTML тегов. По умолчанию (отсутствие `disable_html`) описание может включать HTML-теги для создания гиперссылок и вставки изображений.
-* `owner_only` — если передан (можно без значения), то в RSS-ленту выводятся лишь те записи, которые 
+  Если дополнительно установлен параметры `owner_only`, `non_owner_only`,
+  `include`, `exclude` или `skip_ads`, то количество выводимых в RSS-ленте
+  записей может быть меньше значения `count` за счет исключения записей,
+  которые отсеиваются этими параметрами.
+* <a name="rus-regex"></a> `include` — регистронезависимое регулярное
+  выражение в стиле PCRE, которое должно соответствовать тексту записи. 
+  Остальные записи будут пропущены.
+  В начале и в конце выражения символ `/` **не** нужен.
+* `exclude` — регистронезависимое регулярное выражение в стиле PCRE, 
+  которое **не** должно соответствовать тексту записи. 
+  Остальные записи будут пропущены.
+  В начале и в конце выражения символ `/` **не** нужен.
+* <a name="rus-html"></a> `disable_html` — если передан (можно без значения), 
+  то описание каждой записи не будет содержать никаких HTML тегов. 
+  
+  *По умолчанию* (отсутствие `disable_html`) описание может включать
+  HTML-теги для создания гиперссылок и вставки изображений.
+* <a name="rus-owning"></a> `owner_only` — если передан (можно без значения),
+  то в RSS-ленту выводятся лишь те записи, которые 
    * в случае стены сообщества опубликованы от имени сообщества;
    
-     если в этом случае дополнительно передан параметр `allow_signed=false`, то не будут выводиться подписанные записи, опубликованные от имени сообщества.
+     если в этом случае дополнительно передан параметр `allow_signed=false`,
+     то не будут выводиться подписанные записи, опубликованные от имени сообщества.
    * в случае стены пользователя опубликованы самим этим пользователем.
 
-   
-   По умолчанию (отсутствие параметра) выводятся записи ото всех, если они не фильтруются другими параметрами.
-* `non_owner_only` или `not_owner_only` — если передан любой из них (можно без значения), то в RSS-ленту выводятся лишь те записи, которые 
+   *По умолчанию* (отсутствие параметра) выводятся записи ото всех,
+   если они не фильтруются другими параметрами.
+* `non_owner_only` или `not_owner_only` — если передан любой из них
+  (можно без значения), то в RSS-ленту выводятся лишь те записи, которые 
   * в случае стены сообщества опубликованы не от имени сообщества, а пользователями; 
   
-    если в этом случае дополнительно передан параметр `allow_signed`, то еще будут выводиться подписанные записи, опубликованные от имени сообщества;
+    если в этом случае дополнительно передан параметр `allow_signed`
+    с отсутствующим значением или со значение`true`, то еще будут
+    выводиться подписанные записи, опубликованные от имени сообщества;
   * в случае стены пользователя опубликованы не самим этим пользователем, а другими.
     
-   По умолчанию (отсутствие параметра) выводятся записи ото всех, если они не фильтруются другими параметрами.
-* `allow_signed` — допускать или нет подписанные записи, опубликованные от имени сообщества, если передан параметр `owner_only` или `non_owner_only`/`not_owner_only`.
+   *По умолчанию* (отсутствие параметра) выводятся записи ото всех,
+   если они не фильтруются другими параметрами.
+* <a name="rus-sign"></a> `allow_signed` — допускать или нет подписанные записи, опубликованные
+  от имени сообщества, если передан параметр `owner_only`
+  или `non_owner_only`/`not_owner_only`.
 
-   По умолчанию (отсутствие параметра) допустимы все записи, которые проходят фильтрацию другими параметрами. 
-
-   Допустимые значения (регистр не учитывается): [отсутствие значения] (= `true`), `true`, `false`, `0` (= `false`), `1` (= `true`), все остальные значения воспринимаются как `true`.
-   * в случае переданного параметра `owner_only` позволяет исключать подписанные записи путем передачи значения `false` параметра `allow_signed`,
-   * в случае переданного параметра `non_owner_only` или `not_owner_only` позволяет дополнительно включать в RSS-ленту подписанные записи, опубликованные от имени сообщества, путем передачи значения `true` параметра `allow_signed`,
-* `skip_ads` — если передан (можно без значения), то не выводить в RSS-ленте записи, помеченные как реклама. 
-
-   По умолчанию (отсутствие параметра) выводятся все записи, если они не фильтруются другими параметрами.
+  *По умолчанию* (отсутствие параметра) допустимы все записи, которые проходят фильтрацию другими параметрами. 
+  
+  Допустимые значения (регистр не учитывается): [отсутствие значения]
+  (аналог `true`), `true`, `false`, `0` (аналог `false`), 
+  `1` (аналог `true`), все остальные значения воспринимаются как `true`.
+  * В случае переданного параметра `owner_only` позволяет исключать
+    подписанные записи путем передачи параметра `allow_signed` со значением `false`.
+  * В случае переданного параметра `non_owner_only` или `not_owner_only`
+    позволяет дополнительно включать в RSS-ленту подписанные записи
+    путем передачи параметра `allow_signed` со значением `true`,
+* <a name="rus-ads"></a> `skip_ads` — если передан (можно без значения), то не выводить в RSS-ленте записи, помеченные как реклама. 
    
-   **Примечание**: API Вконтакте на момент коммита некорректно выдает метку о рекламе в случае репостов (о чем тех.поддержка уведомлена), поэтому рекламу-репосты данный параметр не фильтрует — выводит в RSS-ленту.
-* `proxy` — адрес прокси-сервера. Допустимые форматы значения этого параметра:
-    * `address`,
-    * `address:port`,
-    * `type://address`,
-    * `type://address:port`,
-    * `login:password@address`,
-    * `login:password@address:port`,
-    * `type://login:password@address`,
-    * `type://login:password@address:port`,
+   *По умолчанию* (отсутствие параметра) выводятся все записи, если они не фильтруются другими параметрами.
+   
+   **Примечание**: API Вконтакте помечает как рекламу не все записи,
+   которые помечены на стене на сайте, поэтому некоторые рекламные посты параметр не убирает.
+* <a name="rus-proxy"></a> `proxy` — адрес прокси-сервера. Допустимые форматы значения этого параметра:
+  * `address`,
+  * `address:port`,
+  * `type://address`,
+  * `type://address:port`,
+  * `login:password@address`,
+  * `login:password@address:port`,
+  * `type://login:password@address`,
+  * `type://login:password@address:port`,
     
-    где `address` — домен или IP-адрес прокси, `port` — порт, `type` — тип прокси (HTTP, HTTPS, SOCKS4, SOCKS4A, SOCKS5), `login` и `password` — логин и пароль для доступа к прокси, если необходимы. 
+  где `address` — домен или IP-адрес прокси, `port` — порт, `type` — тип прокси (HTTPS, SOCKS4, SOCKS4A, SOCKS5), `login` и `password` — логин и пароль для доступа к прокси, если необходимы. 
   
   Тип прокси и параметры авторизации можно передавать в виде отдельных параметров:
   * `proxy_type` — тип прокси (по умолчанию считается HTTP, если не указано в `proxy` и `proxy_type`),
@@ -104,7 +367,7 @@
   * `proxy_password` — пароль для доступа к прокси-серверу.
 
 
-## Как получить бессрочный токен для доступа к стенам, которые доступны своему профилю
+## <a name="rus-user-access-token"></a> Как получить бессрочный токен для доступа к стенам, которые доступны своему профилю
 Для серверного доступа предпочтительна [такая схема](https://vk.com/dev/authcode_flow_user):
 
 1. Создать собственное standalone-приложение [по этой ссылке](https://vk.com/editapp?act=create). По желанию в настройках приложения можно изменить состояние на «Приложение отключено» — это никак не помешает генерации RSS-ленты.
@@ -119,11 +382,11 @@
 
 4. Пройти по ссылке:
 
-    `https://oauth.vk.com/access_token?client_id=APP_ID&client_secret=APP_SECRET&redirect_uri&code=AUTH_CODE`
+   `https://oauth.vk.com/access_token?client_id=APP_ID&client_secret=APP_SECRET&redirect_uri&code=AUTH_CODE`
 
-    где `APP_ID` — ID созданного приложения, `APP_SECRET` — защищенный ключ приложения (можно увидеть в настройках приложения), `AUTH_CODE` — значение параметра `code` из предыдущего шага.
- 
-    В результате будет выдан JSON-отклик с искомым `access_token` — именно это значение и следует использовать в качестве GET-параметра скрипта, генерирующего RSS-ленту.
+   где `APP_ID` — ID созданного приложения, `APP_SECRET` — защищенный ключ приложения (можно увидеть в настройках приложения), `AUTH_CODE` — значение параметра `code` из предыдущего шага.
+   
+   В результате будет выдан JSON-отклик с искомым `access_token` — именно это значение и следует использовать в качестве GET-параметра скрипта, генерирующего RSS-ленту.
 
 5. При первом использовании токена с IP адреса, отличного от того, с которого получался токен, может выскочить ошибка "API Error 17: Validation required", требующая валидации: для этого необходимо пройти по первой ссылке из описания ошибки и ввести недостающие цифры номера телефона профиля.
 
@@ -150,6 +413,8 @@ index.php?id=club1&owner_only&allow_signed=false&access_token=XXXXXXXXX   # вы
 index.php?id=club1&non_owner_only&access_token=XXXXXXXXX   # выводятся только записи от пользователей (не от имени сообщества)
 index.php?id=club1&non_owner_only&allow_signed&access_token=XXXXXXXXX   # выводятся только записи от имени сообщества, 
                                                                         # у которых есть подпись, и записи от пользователей
-index.php?id=-1&count=100&include=(рекомендуем|приглашаем|\d{3,})&access_token=XXXXXXXXX
+index.php?id=-1&count=100&include=(рекомендуем|приглашаем|\d+)&access_token=XXXXXXXXX
 ```
-**Примечание**: в последнем примере при таком вызове напрямую через GET-параметры может потребоваться URL-кодирование символов: ```index.php?id=-1&count=100&include=(%D1%80%D0%B5%D0%BA%D0%BE%D0%BC%D0%B5%D0%BD%D0%B4%D1%83%D0%B5%D0%BC%7C%D0%BF%D1%80%D0%B8%D0%B3%D0%BB%D0%B0%D1%88%D0%B0%D0%B5%D0%BC%7C%5Cd%7B3%2C%7D)&access_token=XXXXXXXXX```
+**Примечание**: в последнем примере при таком вызове напрямую через
+GET-параметры может потребоваться URL-кодирование символов:
+```index.php?id=-1&count=100&include=(%D1%80%D0%B5%D0%BA%D0%BE%D0%BC%D0%B5%D0%BD%D0%B4%D1%83%D0%B5%D0%BC%7C%D0%BF%D1%80%D0%B8%D0%B3%D0%BB%D0%B0%D1%88%D0%B0%D0%B5%D0%BC%7C%5Cd%2B)&access_token=XXXXXXXXX```
