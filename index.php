@@ -57,6 +57,6 @@ try {
                           504 => '504 Gateway Time-out');
         header('HTTP/1.1 ' . $statuses[$exc->getCode()]);
     }
-    error_log($exc->getMessage() . PHP_EOL);
-    die($exc->getMessage() . PHP_EOL);
+    error_log($exc);
+    die('Error: ' . $exc->getMessage() . PHP_EOL);
 }
