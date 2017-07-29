@@ -504,12 +504,6 @@ class Vk2rss
             $connector->closeConnection();
             throw new Exception("Failed to get content of URL ${url}: " . $exc->getMessage(), $exc->getCode());
         }
-        if (!$this->disable_html) {
-            $content = strtr($content, array('<' => '&lt;',
-                                             '>' => '&gt;',
-                                             '\"' => '&quot;',
-                                             '\'' => '&apos;'));
-        }
         return json_decode($content);
     }
 
