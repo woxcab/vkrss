@@ -167,47 +167,18 @@ class Vk2rss
 
         $connector = new ConnectionWrapper($this->proxy);
 
-        if (!empty($this->domain) || (!empty($this->owner_id) && $this->owner_id < 0)) {
-            $group_response = $this->getContent($connector, "groups.getById");
-            if (property_exists($group_response, 'error') && $group_response->error->error_code != 100) {
-                throw new APIError($group_response, $connector->getLastUrl());
-            }
-        }
-        if (isset($group_response) && !property_exists($group_response, 'error') && !empty($group_response->response)) {
-            $group = $group_response->response[0];
-            $title = $group->name;
-            $feed_description = self::GROUP_FEED_DESCRIPTION_PREFIX . $group->name;
-        } else {
-            try {
-                $user_response = $this->getContent($connector, "users.get");
-                if (property_exists($user_response, 'error')) {
-                    throw new APIError($user_response, $connector->getLastUrl());
-                }
-            } catch (APIError $exc) {
-                throw $exc->getApiErrorCode() == 113 ?
-                    new Exception("Invalid user or group identifier", 400) : $exc;
-            }
-            if (!empty($user_response->response)) {
-                $profile = $user_response->response[0];
-                $title = $profile->first_name . ' ' . $profile->last_name;
-                $feed_description = self::USER_FEED_DESCRIPTION_PREFIX . $profile->first_name . ' ' . $profile->last_name;
-            } else {
-                throw new Exception("Invalid user or group identifier", 400);
-            }
-        }
-
         $feed = new FeedWriter(RSS2);
         $id = $this->domain ? $this->domain :
             ($this->owner_id > 0 ? 'id' . $this->owner_id : 'club' . abs($this->owner_id));
 
-        $feed->setTitle($title);
-        $feed->setDescription($feed_description);
         $feed->setLink('https://vk.com/' . $id);
 
         $feed->setChannelElement('language', 'ru-ru');
         $feed->setChannelElement('pubDate', date(DATE_RSS, time()));
 
 
+        $profiles = array();
+        $groups = array();
         for ($offset = 0; $offset < $this->count; $offset += 100) {
             sleep(1);
             $wall_response = $this->getContent($connector, "wall.get", $offset);
@@ -217,6 +188,15 @@ class Vk2rss
 
             if (empty($wall_response->response->items)) {
                 break;
+            }
+
+            foreach ($wall_response->response->profiles as $profile) {
+                $profiles[$profile->id] = $profile;
+                $profiles[$profile->screen_name] = $profile;
+            }
+            foreach ($wall_response->response->groups as $group) {
+                $groups[$group->id] = $group;
+                $groups[$group->screen_name] = $group;
             }
 
             foreach ($wall_response->response->items as $post) {
@@ -272,6 +252,25 @@ class Vk2rss
                 $feed->addItem($new_item);
             }
         }
+
+        try {
+            if (!empty($this->domain) && isset($profiles[$this->domain])
+                || (!empty($this->owner_id) && $this->owner_id > 0)
+            ) {
+                $profile = isset($profiles[$this->domain]) ? $profiles[$this->domain] : $profiles[$this->owner_id];
+                $title = $profile->first_name . ' ' . $profile->last_name;
+                $feed_description = self::USER_FEED_DESCRIPTION_PREFIX . $profile->first_name . ' ' . $profile->last_name;
+            } else {
+                $group = isset($groups[$this->domain]) ? $groups[$this->domain] : $groups[abs($this->owner_id)];
+                $title = $group->name;
+                $feed_description = self::GROUP_FEED_DESCRIPTION_PREFIX . $group->name;
+            }
+        } catch (Exception $exc) {
+            throw new Exception("Invalid user or group identifier or its wall is empty", 400);
+        }
+
+        $feed->setTitle($title);
+        $feed->setDescription($feed_description);
 
         $feed->generateFeed();
         mb_internal_encoding($outer_encoding);
@@ -458,7 +457,7 @@ class Vk2rss
      */
     protected function getContent($connector, $api_method, $offset = null)
     {
-        $url = self::API_BASE_URL . $api_method . '?v=5.54';
+        $url = self::API_BASE_URL . $api_method . '?v=5.54&extended=1';
         if (isset($this->access_token)) {
             $url .= "&access_token={$this->access_token}";
         }
@@ -476,12 +475,6 @@ class Vk2rss
                     $count = min($this->count, 100);
                 }
                 $url .= "&count={$count}";
-                break;
-            case "users.get":
-                $url .= "&fields=first_name,last_name&user_ids=" . (!empty($this->domain) ? $this->domain : $this->owner_id);
-                break;
-            case "groups.getById":
-                $url .= "&fields=name&group_id=" . (!empty($this->domain) ? $this->domain : abs($this->owner_id));
                 break;
             default:
                 throw new Exception("Passed unsupported API method name '${api_method}'", 400);
