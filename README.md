@@ -23,6 +23,8 @@
 * Optionally [HTML formatting](#eng-html) of RSS item description:
   links, images, line breaks [enabled by default].
 * HTTPS, SOCKS4, SOCKS4A or SOCKS5 [proxy usage](#eng-proxy) is available.
+* Each feed item has author name (post signer/publisher or source post
+  signer/publisher if copied post is the repost).
 
 
 ## Requirements
@@ -232,6 +234,8 @@ so URL-encoding can be required for the direct call:
   переносов строк [по умолчанию включено].
 * Допустимо использование HTTPS, SOCKS4, SOCKS4A или SOCKS5
   [прокси-сервера](#rus-proxy) для запросов.
+* У каждой записи в ленте указан автор (либо тот, кто подписан или опубликовал запись,
+  либо тот, кто подписан или опубликовал исходную запись, если конечная запись является репостом исходной).
 
 
 ## Требования
