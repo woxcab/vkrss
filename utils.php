@@ -232,7 +232,8 @@ class ConnectionWrapper
         } elseif (extension_loaded('curl')) {
             $this->downloader = self::CURL_DOWNLOADER;
         } else {
-            throw new Exception('PHP configuration does not allow to use either file_get_contents or cURL to download remote data, or chosen proxy type requires non-installed cURL extension', 500);
+            throw new Exception('PHP configuration does not allow to use either file_get_contents ' .
+                'or cURL to download remote data, or chosen proxy type requires non-installed cURL extension', 500);
         }
 
         switch ($this->downloader) {
