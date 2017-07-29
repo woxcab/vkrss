@@ -242,7 +242,7 @@ class Vk2rss
                 $imploded_description = implode($this->disable_html ? PHP_EOL : '<br/>', $description);
                 $new_item->setDescription($imploded_description);
 
-                if (isset($this->include) && preg_match('/' . $this->include . '/iu', $imploded_description, $match) !== 1) {
+                if (isset($this->include) && preg_match('/' . $this->include . '/iu', $imploded_description) !== 1) {
                     continue;
                 }
                 if (isset($this->exclude) && preg_match('/' . $this->exclude . '/iu', $imploded_description) !== 0) {
