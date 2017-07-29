@@ -54,7 +54,7 @@ class Vk2rss
     /**
      * Prefix of feed description for group wall
      */
-    const GROUP_FEED_DESCRIPTION_PREFIX = "Стена группы ";
+    const GROUP_FEED_DESCRIPTION_PREFIX = "Стена сообщества ";
     /**
      * Maximum title length in symbols
      */
