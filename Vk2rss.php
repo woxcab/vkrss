@@ -12,8 +12,9 @@
  * Refactoring and featuring:
  *   including & excluding conditions,
  *   title generation,
- *   description extraction from attachment
- *   hashtags extractor to 'category' tags
+ *   description extraction from attachment,
+ *   hashtags extractor to 'category' tags,
+ *   author extraction
  * @author woxcab
  **/
 
