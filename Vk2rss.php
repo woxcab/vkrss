@@ -247,7 +247,7 @@ class Vk2rss
                     $new_item->addElement('author', $profile->first_name . ' ' . $profile->last_name);
                 } else {
                     $base_post = isset($post->copy_history) ? end($post->copy_history) : $post;
-                    if (isset($base_post->singer_id)) {
+                    if (isset($base_post->signer_id)) {
                         $profile = $profiles[$base_post->signer_id];
                         $new_item->addElement('author', $profile->first_name . ' ' . $profile->last_name);
                     } elseif ($base_post->from_id > 0) {
