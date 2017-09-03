@@ -511,11 +511,15 @@ class Vk2rss
     /**
      * Generate title using text of post
      *
-     * @param $description array   post paragraphs
+     * @param $raw_description array   post paragraphs
      * @return string   generated title
      */
-    protected function getTitle($description)
+    protected function getTitle($raw_description)
     {
+        $description = array_fill(0, count($raw_description), null);
+        foreach ($raw_description as $par_idx => $par) {
+            $description[$par_idx] = $par;
+        }
         foreach ($description as $par_idx => &$paragraph) {
             if (preg_match('/^\s*(?:' . self::HASH_TAG_PATTERN . '\s*)*$/u', $paragraph) === 1 // paragraph contains only hash tags
                 || $paragraph === self::VERTICAL_DELIMITER) {
