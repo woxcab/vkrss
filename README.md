@@ -208,6 +208,19 @@ so URL-encoding can be required for the direct call:
 ```index.php?id=-1&count=100&include=(new%7Cwall%7C%5Cd%2B)&access_token=XXXXXXXXX```
 
 
+## Troubleshooting
+* If you get error: 
+  > date(): It is not safe to rely on the system's timezone settings.
+    You are *required* to use the date.timezone setting or
+    the date_default_timezone_set() function. In case you used any
+    of those methods and you are still getting this warning,
+    you most likely misspelled the timezone identifier.
+    We selected the timezone 'UTC' for now, but please set date.timezone
+    to select your timezone.
+  
+  then set timezone in php configuration (`date.timezone` parameter) or 
+  add line like `date_default_timezone_set('UTC');` to the start
+  of the `index.php` script (before `require_once` statement).
 
 
 ---
@@ -422,3 +435,17 @@ index.php?id=-1&count=100&include=(рекомендуем|приглашаем|\
 **Примечание**: в последнем примере при таком вызове напрямую через
 GET-параметры может потребоваться URL-кодирование символов:
 ```index.php?id=-1&count=100&include=(%D1%80%D0%B5%D0%BA%D0%BE%D0%BC%D0%B5%D0%BD%D0%B4%D1%83%D0%B5%D0%BC%7C%D0%BF%D1%80%D0%B8%D0%B3%D0%BB%D0%B0%D1%88%D0%B0%D0%B5%D0%BC%7C%5Cd%2B)&access_token=XXXXXXXXX```
+
+## Возможные проблемы и их решения
+* Если при запуске скрипта интерпретатор выдает ошибку: 
+  > date(): It is not safe to rely on the system's timezone settings.
+    You are *required* to use the date.timezone setting or
+    the date_default_timezone_set() function. In case you used any
+    of those methods and you are still getting this warning,
+    you most likely misspelled the timezone identifier.
+    We selected the timezone 'UTC' for now, but please set date.timezone
+    to select your timezone.
+  
+  тогда необходимо либо добавить информацию о часовом поясе в конфигурационный файл PHP (параметр `date.timezone`),
+  либо добавить в начале скрипта `index.php` (перед `require_once`) строку, подобную `date_default_timezone_set('UTC');`,
+  устанавливающую часовую зону `UTC` для скрипта.
