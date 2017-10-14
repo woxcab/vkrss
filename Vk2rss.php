@@ -242,6 +242,7 @@ class Vk2rss
                 }
 
                 $new_item->addElement('title', $this->getTitle($description));
+                $new_item->addElement("comments", "https://vk.com/wall{$post->owner_id}_{$post->id}#fw_replies_header");
                 $new_item->addElement("slash:comments", $post->comments->count);
                 if (isset($post->signer_id)) {
                     $profile = $profiles[$post->signer_id];
