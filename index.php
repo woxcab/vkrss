@@ -41,22 +41,14 @@ try {
         isset($_GET['skip_ads']));
     $vk2rss->generateRSS();
 } catch (APIError $exc) {
-    http_response_code($exc->getCode());
+    header("Content-type: text/plain; charset=utf-8");
     $msg = "API Error {$exc->getApiErrorCode()}: {$exc->getMessage()}. Request URL: {$exc->getRequestUrl()}" . PHP_EOL;
+    header("HTTP/1.1 {$exc->getCode()} {$msg}");
     error_log($msg);
     die($msg);
 } catch (Exception $exc) {
-    if (function_exists('http_response_code')) {
-        http_response_code($exc->getCode());
-    } else {
-        $statuses = array(400 => '400 Bad Request',
-                          401 => '401 Unauthorized',
-                          407 => '407 Proxy Authentication Required',
-                          500 => '500 Internal Server Error',
-                          503 => '503 Service Unavailable',
-                          504 => '504 Gateway Time-out');
-        header('HTTP/1.1 ' . $statuses[$exc->getCode()]);
-    }
+    header("Content-type: text/plain; charset=utf-8");
+    header("HTTP/1.1 {$exc->getCode()} {$exc->getMessage()}");
     error_log($exc);
-    die('Error: ' . $exc->getMessage() . PHP_EOL);
+    die($exc->getMessage());
 }
