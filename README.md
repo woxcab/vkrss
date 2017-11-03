@@ -25,16 +25,17 @@
 * HTTPS, SOCKS4, SOCKS4A or SOCKS5 [proxy usage](#eng-proxy) is available.
 * Each feed item has author name (post signer/publisher or source post
   signer/publisher if wall post is the repost).
+* Customizable [repost delimiter](#eng-repost-delimiter) with substitutions.
 
 
 ## Requirements
 * PHP>=5.2.2 (5.3.X, 5.4.X, 5.5.X, 5.6.X, 7.X included)
   with installed `mbstring`, `json`, `pcre`, `openssl` bundled extensions.
-* Script prefers the built-in tools for the requests. 
+* Script prefers the built-in tools for the requests.
   If `allow_url_fopen` parameter is disabled in the PHP configuration
   file or interpreter parameters and `cURL` PHP extension is installed
   then script uses `cURL` for the requests.
-* If you want to use proxy server then 
+* If you want to use proxy server then
   * for HTTPS proxy: either `cURL`>=7.10 extension must be installed
     **or** `allow_url_fopen` parameter must be enabled in the PHP configuration
     file or interpreter parameters;
@@ -42,7 +43,7 @@
   * for SOCKS4 proxy: PHP>=5.2.10 with `cURL`>=7.10 extension is required;
   * for SOCKS4A proxy: PHP>=5.5.23 or PHP>=5.6.7 (7.X included)
     with `cURL`>=7.18 extension is required.
-    
+
 If script returns page with non-200 HTTP status then some problem was occurred:
 detailed problem information is described in the HTTP status phrase,
 in the script output and in the server/interpreter logfile.
@@ -60,46 +61,74 @@ Main `index.php` script accepts the below GET-parameters.
   * `-123456`, `public123456` — both of these values identify the public page with ID 123456,
   * `-123456`, `event123456` — both of these values identify the event with ID 123456,
   * `apiclub` — value identifies the user profile or community with this short name.
-  
+
   Deprecated `domain` and `owner_id` parameters are allowed and are identical to `id`.
 * [required] `access_token` is
   * either service token that's specified in the app settings
     (you can create your own standalone application
     [here](https://vk.com/editapp?act=create), app can be off)
-    
+
     Service token allows to fetch only opened for everyone walls.
   * or [user access token with offline permissions](#eng-user-access-token)
-    
+
     User access token allows to fetch both opened and closed walls that're opened for this user.
-    
+
     Warning: If user terminates all sessions in the security settings of profile
     then him access token becomes invalid; in that case, user must create new access token.
 * <a name="eng-count"></a> `count` is number of processing posts starting with the latest published post.
-  It's arbitrary amount including more than 100.  
+  It's arbitrary amount including more than 100.
   If it's more 100 then multiple requests will be sent because
   VK API allows to fetch no more than 100 posts at a time.
   Delay between requests is equal to 1 sec in order to satisfy VK API limits
   (no more than 3 requests per second).
-  
+
   *Default value*: 20.
-  
+
   If `owner_only`, `non_owner_only`, `include`, `exclude` or `skip_ads`
   parameters are passed then amount of posts in the result RSS feed can be
   less than `count` because some post can be skipped by these parameters.
-* <a name="eng-regex"></a> `include` is case insensitive regular expression (PCRE notation) 
-  that must match the post text. Another posts will be skipped. 
-  Symbol `/` **is not** required at the start and at the end of regular expression. 
-* `exclude` is case insensitive regular expression (PCRE notation) 
-  that must **not** match the post text. Another posts will be skipped. 
+* <a name="eng-repost-delimiter"></a> `repost_delimiter` is a string that's placed
+  between parent and child posts; in other words, it's a header of a child post
+  in the repost.
+
+  *Default value* is `<hr><hr>` if HTML formatting is enabled (default behaviour),
+  otherwise `______________________` (`disable_html` parameter).
+
+  This parameter can contain the next special strings that will be substituted in the RSS feed:
+  * `{author}` that's replaced with first and last names of child post' author
+    in the nominative case if author is a user,
+    otherwise it's replaced with community name in the nominative that's published child post.
+  * `{author_ins}` that's replaced with first and last names
+    of child post' author in the instrumental case if author is a user,
+    otherwise it's replaced with community name in the nominative that's published child post
+  * `{author_gen}` that's replaced with first and last names
+    of child post' author in the genitive case if author is a user,
+    otherwise it's replaced with community name in the nominative that's published child post
+
+  Author is child post' signer if it exists, otherwise it's child post' publisher.
+
+  E.g., parameter value `<hr>Written by {author}` is replaced with:
+  * `<hr>Written by John Smith` if author is user and publisher of child post,
+  * `<hr>Written by Fun Club` if author is community,
+  * `<hr>Written by John Smith in Fun Club` if author is user and signer of child post.
+
+  Additionally substitutions adds links to user/community pages
+  that're represented as either HTML hyperlinks on author name or plain text in the brackets
+  (if `disable_html` is enabled).
+* <a name="eng-regex"></a> `include` is case insensitive regular expression (PCRE notation)
+  that must match the post text. Another posts will be skipped.
+  Symbol `/` **is not** required at the start and at the end of regular expression.
+* `exclude` is case insensitive regular expression (PCRE notation)
+  that must **not** match the post text. Another posts will be skipped.
   Symbol `/` **is not** required at the start and at the end of regular expression.
 * <a name="eng-html"></a> `disable_html` passing (including absent value) indicates
   that RSS item descriptions must be without HTML formatting.
-  
+
   *By default* HTML formatting is applied for links and images.
 * <a name="eng-owning"></a> `owner_only` passing (including absent value) indicates that RSS must
   contain only posts that's
   * published by community in the case of community wall;
-  
+
     If `allow_signed` parameter with `false` value is also passed
     then posts with signature (that's published by community) will be skipped.
   * published by profile owner in the case of user wall.
@@ -108,7 +137,7 @@ Main `index.php` script accepts the below GET-parameters.
 * `non_owner_only` or `not_owner_only` passing (including absent value)
   indicates that RSS must contain only posts that's
   * not published by community in the case of community wall, i.e. published by users.
-  
+
     If `allow_signed` parameter with `true` or absent value is also passed
     then posts with signature (that's published by community)
     will be included to the RSS feed.
@@ -118,9 +147,9 @@ Main `index.php` script accepts the below GET-parameters.
 * <a name="eng-sign"></a> `allow_signed` allows or disallows posts (that's published by community)
   with signature when `owner_only` or `non_owner_only`/`not_owner_only`
   parameter is passed.
-  
+
   *By default* [absent parameter] RSS feed contains all posts that passes another filters.
-  
+
   Allowed values: [absent value] (same as `true`), `true`, `false`,
   `0` (same as `false`), `1` (same as `true`). Another values are interpreted as `true`.
   * If `owner_only` is passed then `allow_signed` with `false` value doesn't include
@@ -131,7 +160,7 @@ Main `index.php` script accepts the below GET-parameters.
 * <a name="eng-ads"></a> `skip_ads` passing indicates that all marked as ad posts will be skipped.
 
   *By default* [absent parameter] RSS feed contains all posts that passes another filters.
-  
+
   **Note**: Some wall posts that're marked as ad on the website,
   VK API doesn't mark as ad, therefore some ad posts can be in the RSS feed.
 * <a name="eng-proxy"></a> `proxy` is proxy server address. Allowed value formats:
@@ -143,11 +172,11 @@ Main `index.php` script accepts the below GET-parameters.
   * `login:password@address:port`,
   * `type://login:password@address`,
   * `type://login:password@address:port`,
-  
+
   where `address` is proxy domain or IP-address, `port` is proxy port,
   `type` is proxy type (HTTPS, SOCKS4, SOCKS4A, SOCKS5),
   `login` and `password` are login and password for proxy access if it's necessary.
-  
+
   Proxy type, login and password can be passed through another parameters:
   `proxy_type`, `proxy_login` and `proxy_password` respectively.
 
@@ -155,7 +184,7 @@ Main `index.php` script accepts the below GET-parameters.
 [This authorization flow](https://vk.com/dev/authcode_flow_user) is
 preferred getting user access token for the server side access to the walls.
 
-1. Create your own standalone application [here](https://vk.com/editapp?act=create). 
+1. Create your own standalone application [here](https://vk.com/editapp?act=create).
    Created app can be off because it does not matter for the API requests.
 2. Authorize necessary account on vk.com and go to the next URL
 
@@ -173,7 +202,7 @@ preferred getting user access token for the server side access to the walls.
    where replace `APP_ID` with application ID, replace `APP_SECRET`
    with secure key that's specified in the app settings,
    replace `AUTH_CODE` with `code` value from the previous step.
-   
+
    The result JSON-response contains sought-for access token.
 
 Bonus: created app keeps API calls statistics so you can see it.
@@ -189,7 +218,7 @@ index.php?id=apiclub&access_token=XXXXXXXXX
 index.php?id=-1&access_token=XXXXXXXXX
 index.php?id=id1&access_token=XXXXXXXXX
 index.php?id=club1&access_token=XXXXXXXXX
-index.php?id=club1&disable_html&access_token=XXXXXXXXX   # no HTML formatting in RSS item descriptions 
+index.php?id=club1&disable_html&access_token=XXXXXXXXX   # no HTML formatting in RSS item descriptions
 index.php?id=apiclub&count=100&include=newsfeed&access_token=XXXXXXXXX   # feed contains only posts with substring 'newsfeed'
 index.php?id=apiclub&count=100&exclude=newsfeed&access_token=XXXXXXXXX   # feed contains only posts without substring 'newsfeed'
 index.php?id=apiclub&proxy=localhost:8080&access_token=XXXXXXXXX
@@ -199,17 +228,18 @@ index.php?id=club1&owner_only&access_token=XXXXXXXXX   # feed contains only post
 index.php?id=club1&owner_only&allow_signed=false&access_token=XXXXXXXXX   # feed contains only posts by community
                                                                           # that's without signature
 index.php?id=club1&non_owner_only&access_token=XXXXXXXXX   # feed contains only posts by users
-index.php?id=club1&non_owner_only&allow_signed&access_token=XXXXXXXXX   # feed contains only posts by users 
+index.php?id=club1&non_owner_only&allow_signed&access_token=XXXXXXXXX   # feed contains only posts by users
                                                                         # and community posts with signature
 index.php?id=-1&count=100&include=(new|wall|\d+)&access_token=XXXXXXXXX
+index.php?id=-1&count=30&repost_delimiter=<hr><hr>Written by {author}:&access_token=XXXXXXXXX
 ```
 **Note**: one parameter contains special characters in the last example,
-so URL-encoding can be required for the direct call: 
+so URL-encoding can be required for the direct call:
 ```index.php?id=-1&count=100&include=(new%7Cwall%7C%5Cd%2B)&access_token=XXXXXXXXX```
 
 
 ## Troubleshooting
-* If you get error: 
+* If you get error:
   > date(): It is not safe to rely on the system's timezone settings.
     You are *required* to use the date.timezone setting or
     the date_default_timezone_set() function. In case you used any
@@ -217,8 +247,8 @@ so URL-encoding can be required for the direct call:
     you most likely misspelled the timezone identifier.
     We selected the timezone 'UTC' for now, but please set date.timezone
     to select your timezone.
-  
-  then set timezone in php configuration (`date.timezone` parameter) or 
+
+  then set timezone in php configuration (`date.timezone` parameter) or
   add line like `date_default_timezone_set('UTC');` to the start
   of the `index.php` script (before `require_once` statement).
 
@@ -249,6 +279,8 @@ so URL-encoding can be required for the direct call:
   [прокси-сервера](#rus-proxy) для запросов.
 * У каждой записи в ленте указан автор (либо тот, кто подписан или опубликовал запись,
   либо тот, кто подписан или опубликовал исходную запись, если конечная запись является репостом исходной).
+* Возможность задать свой [собственный разделитель](#rus-repost-delimiter) с подстановками
+  между родительским и дочерним записями (репосты).
 
 
 ## Требования
@@ -258,7 +290,7 @@ so URL-encoding can be required for the direct call:
   Если у PHP отключена встроенная возможность загрузки файлов по URL
   (отключен параметр `allow_url_fopen` в конфигурации или параметрах интерпретатора),
   но при этом у PHP установлено расширение `cURL`,
-  то именно оно будет использоваться для загрузки данных. 
+  то именно оно будет использоваться для загрузки данных.
 * Если необходимо использовать прокси-сервер, то в случае
    * HTTPS-прокси — либо необходимо расширение `cURL`>=7.10, **либо**
      в конфигурационном файле или параметрах интерпретатора PHP
@@ -285,20 +317,20 @@ so URL-encoding can be required for the direct call:
   * `-123456`, `public123456` — оба значения указывают на одну и ту же публичную страницу с ID 123456,
   * `-123456`, `event123456` — оба значения указывают на одну и ту же страницу мероприятия с ID 123456,
   * `apiclub` — значение указывает на пользователя или сообщество с данным коротким названием.
-  
+
   Ради обратной совместимости допускается вместо `id` использовать `domain` или `owner_id`.
 
-* [обязательный] `access_token` — 
+* [обязательный] `access_token` —
    * Либо сервисный ключ доступа, который указан в настройках приложения
      (создать собственное standalone-приложение можно
      [по этой ссылке](https://vk.com/editapp?act=create), само приложение может быть выключено).
-   
+
      Сервисный ключ доступа дает возможность получать записи только с открытых для всех стен.
    * Либо [ключ доступа пользователя с правами оффлайн-доступа](#rus-user-access-token).
 
      Ключ доступа пользователя позволяет получать записи как с открытых,
      так и закрытых стен (но открытых для пользователя, который создал токен).
-     
+
      Предупреждение: если в настройках безопасности пользователя будут завершены все сессии,
      то ключ доступа пользователя станет невалидным — нужно сформировать ключ заново.
 
@@ -313,23 +345,66 @@ so URL-encoding can be required for the direct call:
   `include`, `exclude` или `skip_ads`, то количество выводимых в RSS-ленте
   записей может быть меньше значения `count` за счет исключения записей,
   которые отсеиваются этими параметрами.
+
+* <a name="rus-repost-delimiter"></a> `repost_delimiter` — разделитель
+  между родительской и дочерней записью (когда профиль/сообщество [«родитель»]
+  поделилось записью от другого профиля/сообщества [«ребенок»]),
+  иными словами, заголовок дочерней записи.
+
+  *По умолчанию* разделителем служит `<hr><hr>` в случае по умолчанию
+  включенного HTML-форматирования и `______________________`
+  в случае отключенного HTML-форматирования (параметр `disable_html`):
+
+  В качестве значения параметра может быть передана любая строка.
+  Допустимо использование специальных подстановок:
+  * `{author}` — в RSS ленте заменяется на автора дочерней записи в именительном падеже.
+  * `{author_gen}` — заменяется на автора дочерней записи в родительном падеже в случае,
+    если этот автор является пользователем, а если автор — сообщество,
+    то заменяется на название сообщества без морфологических изменений.
+  * `{author_ins}` — заменяется на автора дочерней записи в творительном падеже в случае,
+    если этот автор является пользователем, а если автор — сообщество,
+    то заменяется на название сообщества без морфологических изменений.
+
+  Под автором записи понимается в первую очередь подписанный автор,
+  а если такового нет, то публикатор записи.
+
+  Примеры значений параметра:
+  * `{author} пишет:` — в случае автора-пользователя подставится,
+     например, `Иван Иванов пишет:`, а в случае автора-сообщества, например,
+     `ВКонтакте API пишет:`
+  * `<hr>Опубликовано {author_ins}:` — в случае автора-пользователя подставится,
+     например, `Опубликовано Иваном Ивановым:`, а в случае автора-сообщества, например,
+     `Опубликовано ВКонтакте API:`
+  * `Запись {author_gen}:` — в случае автора-пользователя подставится,
+     например, `Запись Ивана Иванова:`, а в случае автора-сообщества, например,
+     `Запись ВКонтакте API:`
+  * `<hr>Написано {author_ins}:` — в случае автора-пользователя подставится,
+     например, `<hr>Написано Иваном Ивановым:`, а в случае автора-сообщества, например,
+     `<hr>Написано ВКонтакте API:`. Если же запись опубликована в сообществе, но при этом
+     подписана автором, то подстановка станет наподобие такой:
+     `<hr>Написано Иваном Ивановым в сообществе ВКонтакте API:`
+     (аналогично будет в предыдущих примерах)
+
+   В указанных примерах в результатах подстановки еще подставляются либо HTML-форматированные
+   ссылки на пользователя/сообщество, либо эти же же ссылки в виде простого текста
+   в случае отключенного HTML-форматирования (параметр `disable_html`).
 * <a name="rus-regex"></a> `include` — регистронезависимое регулярное
-  выражение в стиле PCRE, которое должно соответствовать тексту записи. 
+  выражение в стиле PCRE, которое должно соответствовать тексту записи.
   Остальные записи будут пропущены.
   В начале и в конце выражения символ `/` **не** нужен.
-* `exclude` — регистронезависимое регулярное выражение в стиле PCRE, 
-  которое **не** должно соответствовать тексту записи. 
+* `exclude` — регистронезависимое регулярное выражение в стиле PCRE,
+  которое **не** должно соответствовать тексту записи.
   Остальные записи будут пропущены.
   В начале и в конце выражения символ `/` **не** нужен.
-* <a name="rus-html"></a> `disable_html` — если передан (можно без значения), 
-  то описание каждой записи не будет содержать никаких HTML тегов. 
-  
+* <a name="rus-html"></a> `disable_html` — если передан (можно без значения),
+  то описание каждой записи не будет содержать никаких HTML тегов.
+
   *По умолчанию* (отсутствие `disable_html`) описание может включать
   HTML-теги для создания гиперссылок и вставки изображений.
 * <a name="rus-owning"></a> `owner_only` — если передан (можно без значения),
-  то в RSS-ленту выводятся лишь те записи, которые 
+  то в RSS-ленту выводятся лишь те записи, которые
    * в случае стены сообщества опубликованы от имени сообщества;
-   
+
      если в этом случае дополнительно передан параметр `allow_signed=false`,
      то не будут выводиться подписанные записи, опубликованные от имени сообщества.
    * в случае стены пользователя опубликованы самим этим пользователем.
@@ -337,14 +412,14 @@ so URL-encoding can be required for the direct call:
    *По умолчанию* (отсутствие параметра) выводятся записи ото всех,
    если они не фильтруются другими параметрами.
 * `non_owner_only` или `not_owner_only` — если передан любой из них
-  (можно без значения), то в RSS-ленту выводятся лишь те записи, которые 
-  * в случае стены сообщества опубликованы не от имени сообщества, а пользователями; 
-  
+  (можно без значения), то в RSS-ленту выводятся лишь те записи, которые
+  * в случае стены сообщества опубликованы не от имени сообщества, а пользователями;
+
     если в этом случае дополнительно передан параметр `allow_signed`
     с отсутствующим значением или со значение`true`, то еще будут
     выводиться подписанные записи, опубликованные от имени сообщества;
   * в случае стены пользователя опубликованы не самим этим пользователем, а другими.
-    
+
    *По умолчанию* (отсутствие параметра) выводятся записи ото всех,
    если они не фильтруются другими параметрами.
 * <a name="rus-sign"></a> `allow_signed` — допускать или нет подписанные записи, опубликованные
@@ -352,10 +427,10 @@ so URL-encoding can be required for the direct call:
   или `non_owner_only`/`not_owner_only`.
 
   *По умолчанию* (отсутствие параметра) допустимы все записи,
-  которые проходят фильтрацию другими параметрами. 
-  
+  которые проходят фильтрацию другими параметрами.
+
   Допустимые значения (регистр не учитывается): [отсутствие значения]
-  (аналог `true`), `true`, `false`, `0` (аналог `false`), 
+  (аналог `true`), `true`, `false`, `0` (аналог `false`),
   `1` (аналог `true`), все остальные значения воспринимаются как `true`.
   * В случае переданного параметра `owner_only` позволяет исключать
     подписанные записи путем передачи параметра `allow_signed` со значением `false`.
@@ -363,11 +438,11 @@ so URL-encoding can be required for the direct call:
     позволяет дополнительно включать в RSS-ленту подписанные записи
     путем передачи параметра `allow_signed` со значением `true`,
 * <a name="rus-ads"></a> `skip_ads` — если передан (можно без значения),
-   то не выводить в RSS-ленту записи, помеченные как реклама. 
-   
+   то не выводить в RSS-ленту записи, помеченные как реклама.
+
    *По умолчанию* (отсутствие параметра) выводятся все записи,
    если они не фильтруются другими параметрами.
-   
+
    **Примечание**: API Вконтакте помечает как рекламу не все записи,
    которые помечены на стене на сайте, поэтому некоторые рекламные посты параметр не убирает.
 * <a name="rus-proxy"></a> `proxy` — адрес прокси-сервера. Допустимые форматы значения этого параметра:
@@ -379,11 +454,11 @@ so URL-encoding can be required for the direct call:
   * `login:password@address:port`,
   * `type://login:password@address`,
   * `type://login:password@address:port`,
-    
+
   где `address` — домен или IP-адрес прокси, `port` — порт,
   `type` — тип прокси (HTTPS, SOCKS4, SOCKS4A, SOCKS5),
-  `login` и `password` — логин и пароль для доступа к прокси, если необходимы. 
-  
+  `login` и `password` — логин и пароль для доступа к прокси, если необходимы.
+
   Тип прокси и параметры авторизации можно передавать в виде отдельных параметров:
   * `proxy_type` — тип прокси (по умолчанию считается HTTP, если не указано в `proxy` и `proxy_type`),
   * `proxy_login` — логин для доступа к прокси-серверу,
@@ -413,8 +488,8 @@ so URL-encoding can be required for the direct call:
    где `APP_ID` — ID созданного приложения,
    `APP_SECRET` — защищенный ключ приложения (можно увидеть в настройках приложения),
    `AUTH_CODE` — значение параметра `code` из предыдущего шага.
-   
-   В результате будет выдан JSON-отклик с искомым `access_token` — 
+
+   В результате будет выдан JSON-отклик с искомым `access_token` —
    именно это значение и следует использовать
    в качестве GET-параметра скрипта, генерирующего RSS-ленту.
 
@@ -445,16 +520,17 @@ index.php?id=club1&owner_only&access_token=XXXXXXXXX   # выводятся то
 index.php?id=club1&owner_only&allow_signed=false&access_token=XXXXXXXXX   # выводятся только записи от имени сообщества,
                                                                           # у которых нет подписи
 index.php?id=club1&non_owner_only&access_token=XXXXXXXXX   # выводятся только записи от пользователей (не от имени сообщества)
-index.php?id=club1&non_owner_only&allow_signed&access_token=XXXXXXXXX   # выводятся только записи от имени сообщества, 
+index.php?id=club1&non_owner_only&allow_signed&access_token=XXXXXXXXX   # выводятся только записи от имени сообщества,
                                                                         # у которых есть подпись, и записи от пользователей
 index.php?id=-1&count=100&include=(рекомендуем|приглашаем|\d+)&access_token=XXXXXXXXX
+index.php?id=-1&count=30&repost_delimiter=<hr><hr>{author} пишет:&access_token=XXXXXXXXX
 ```
 **Примечание**: в последнем примере при таком вызове напрямую через
 GET-параметры может потребоваться URL-кодирование символов:
 ```index.php?id=-1&count=100&include=(%D1%80%D0%B5%D0%BA%D0%BE%D0%BC%D0%B5%D0%BD%D0%B4%D1%83%D0%B5%D0%BC%7C%D0%BF%D1%80%D0%B8%D0%B3%D0%BB%D0%B0%D1%88%D0%B0%D0%B5%D0%BC%7C%5Cd%2B)&access_token=XXXXXXXXX```
 
 ## Возможные проблемы и их решения
-* Если при запуске скрипта интерпретатор выдает ошибку: 
+* Если при запуске скрипта интерпретатор выдает ошибку:
   > date(): It is not safe to rely on the system's timezone settings.
     You are *required* to use the date.timezone setting or
     the date_default_timezone_set() function. In case you used any
@@ -462,7 +538,7 @@ GET-параметры может потребоваться URL-кодиров�
     you most likely misspelled the timezone identifier.
     We selected the timezone 'UTC' for now, but please set date.timezone
     to select your timezone.
-  
+
   тогда необходимо либо добавить информацию о часовом поясе
   в конфигурационный файл PHP (параметр `date.timezone`),
   либо добавить в начале скрипта `index.php` (перед `require_once`) строку,

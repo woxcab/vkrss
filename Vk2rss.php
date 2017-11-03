@@ -39,11 +39,6 @@ class Vk2rss
     const TEXTUAL_LINK_REMOVE_PATTERN = '$3$6';
     const EMPTY_STRING_PATTERN = '@^(?:[\s ]*(?:<br/?>|\n)+[\s ]*)*$@u';
 
-
-    /**
-     * Delimiter of text from different parts of post
-     */
-    const VERTICAL_DELIMITER = '________________';
     /**
      * Default title value when no text in the post
      */
@@ -112,7 +107,7 @@ class Vk2rss
      * Vk2rss constructor.
      * @param array $config    Parameters from the set: id, access_token,
      *                           count, include, exclude, disable_html, owner_only, non_owner_only,
-     *                           allow_signed, skip_ads,
+     *                           allow_signed, skip_ads, repost_delimiter,
      *                           proxy, proxy_type, proxy_login, proxy_password
      *                         where id and access_token are required
      * @throws Exception   If required parameters id or access_token do not present in the configuration
@@ -154,6 +149,16 @@ class Vk2rss
         $this->non_owner_only = logical_value($config, 'non_owner_only') || logical_value($config, 'not_owner_only');
         $this->allow_signed = logical_value($config, 'allow_signed');
         $this->skip_ads =  logical_value($config, 'skip_ads');
+        $this->repost_delimiter = isset($config['repost_delimiter'])
+            ? $config['repost_delimiter']
+            : ($this->disable_html ? "______________________" : "<hr><hr>");
+        $this->attachment_delimiter = $this->disable_html ? "______________________" : "<hr>";
+        if (preg_match('/\{author[^}]*\}/', $this->repost_delimiter) === 1) {
+            $this->delimiter_regex = '/^' . preg_quote($this->attachment_delimiter, '/') . '$/u';
+        } else {
+            $this->delimiter_regex = '/^(' . preg_quote($this->repost_delimiter, '/')
+                . '|' . preg_quote($this->attachment_delimiter, '/') . '$)/u';
+        }
         if (isset($config['proxy'])) {
             try {
                 $this->proxy = new ProxyDescriptor($config['proxy'],
@@ -229,8 +234,8 @@ class Vk2rss
                 $new_item->setDate($post->date);
 
                 $description = array();
-                $this->extractDescription($description, $post);
-                if (!empty($description) && $description[0] === self::VERTICAL_DELIMITER) {
+                $this->extractDescription($description, $post, $profiles, $groups);
+                if (!empty($description) && preg_match($this->delimiter_regex, $description[0]) === 1) {
                     array_shift($description);
                 }
 
@@ -306,7 +311,7 @@ class Vk2rss
         mb_internal_encoding($outer_encoding);
     }
 
-    protected function extractDescription(&$description, $post)
+    protected function extractDescription(&$description, $post, &$profiles, &$groups)
     {
         $par_split_regex = '@[\s ]*?(?:<br/?>|\n)+[\s ]*?@u'; # PHP 5.2.X: \s does not contain non-break space
 
@@ -340,7 +345,7 @@ class Vk2rss
                             : "<a href='{$huge_photo_src}'><img src='{$attachment->photo->{$photo_sizes[2]}}'/></a>";
                         if (preg_match(self::EMPTY_STRING_PATTERN, $photo_text) === 0) {
                             $description = array_merge($description,
-                                                       array(self::VERTICAL_DELIMITER),
+                                                       array($this->attachment_delimiter),
                                                        preg_split($par_split_regex, $photo_text),
                                                        array($photo));
                         } else {
@@ -353,7 +358,7 @@ class Vk2rss
                                                               array_keys(get_object_vars($attachment->album->thumb))));
                         $album_title = $attachment->album->title;
                         $album_url = "https://vk.com/album" . $attachment->album->owner_id . "_" . $attachment->album->id;
-                        array_push($description, self::VERTICAL_DELIMITER);
+                        array_push($description, $this->attachment_delimiter);
                         if ($this->disable_html) {
                             array_push($description, "Альбом «" . $album_title . "»: " . $album_url);
                         } else {
@@ -394,7 +399,7 @@ class Vk2rss
                                 array_push($description, "Изображение «{$attachment->doc->title}»: {$photo_url} ({$url})");
                             } else {
                                 array_push($description,
-                                           self::VERTICAL_DELIMITER,
+                                           $this->attachment_delimiter,
                                            "<a href='{$url}'>Изображение «{$attachment->doc->title}»</a>: <a href='{$photo_url}'><img src='{$preview_url}'/></a>");
                             }
                         } else {
@@ -409,13 +414,13 @@ class Vk2rss
                     case 'link': {
                         if ($this->disable_html) {
                             array_push($description,
-                                       self::VERTICAL_DELIMITER,
+                                       $this->attachment_delimiter,
                                        "{$attachment->link->title}: {$attachment->link->url}");
                         } else {
                             $link_text = preg_match(self::EMPTY_STRING_PATTERN, $attachment->link->title) === 0 ?
                                 $attachment->link->title : $attachment->link->url;
                             array_push($description,
-                                       self::VERTICAL_DELIMITER,
+                                       $this->attachment_delimiter,
                                        "<a href='{$attachment->link->url}'>{$link_text}</a>");
                         }
                         if (preg_match(self::EMPTY_STRING_PATTERN, $attachment->link->description) === 0) {
@@ -438,7 +443,7 @@ class Vk2rss
                             $content = array("Видеозапись «{$attachment->video->title}»:");
                         }
                         if ($video_description) {
-                            array_unshift($content, self::VERTICAL_DELIMITER);
+                            array_unshift($content, $this->attachment_delimiter);
                         }
                         if ($this->disable_html) {
                             array_push($content, "https://vk.com/video{$attachment->video->owner_id}_{$attachment->video->id}");
@@ -453,11 +458,11 @@ class Vk2rss
                     case 'page':
                         if ($this->disable_html) {
                             array_push($description,
-                                       self::VERTICAL_DELIMITER,
+                                       $this->attachment_delimiter,
                                        "{$attachment->page->title}: https://vk.com/page-{$attachment->page->group_id}_{$attachment->page->id}");
                         } else {
                             array_push($description,
-                                       self::VERTICAL_DELIMITER,
+                                       $this->attachment_delimiter,
                                        "<a href='https://vk.com/page-{$attachment->page->group_id}_{$attachment->page->id}'>{$attachment->page->title}</a>");
                         }
                         break;
@@ -467,9 +472,52 @@ class Vk2rss
 
         if (isset($post->copy_history)) {
             foreach ($post->copy_history as $repost) {
-                array_push($description, self::VERTICAL_DELIMITER);
-                $this->extractDescription($description, $repost);
-                if (end($description) === self::VERTICAL_DELIMITER) {
+                $author_id = isset($repost->signer_id) ? $repost->signer_id : $repost->owner_id;
+                if ($author_id < 0) {
+                    $author_name = $groups[abs($author_id)]->name;
+                    $author_link = 'https://vk.com/' . $groups[abs($author_id)]->screen_name;
+                } else {
+                    $author_name = $profiles[$author_id]->first_name . ' '
+                        . $profiles[$author_id]->last_name;
+                    $author_name_ins = $profiles[$author_id]->first_name_ins . ' '
+                        . $profiles[$author_id]->last_name_ins;
+                    $author_name_gen = $profiles[$author_id]->first_name_gen . ' '
+                        . $profiles[$author_id]->last_name_gen;
+                    $author_link = 'https://vk.com/' . $profiles[$author_id]->screen_name;
+                    $author_ins = $this->disable_html
+                        ? "$author_name_ins ($author_link)"
+                        : "<a href='$author_link'>$author_name_ins</a>";
+                    $author_gen = $this->disable_html
+                        ? "$author_name_gen ($author_link)"
+                        : "<a href='$author_link'>$author_name_gen</a>";
+                }
+                $author = $this->disable_html
+                    ? "$author_name ($author_link)"
+                    : "<a href='$author_link'>$author_name</a>";
+                if (!isset($author_ins)) {
+                    $author_ins = $author;
+                }
+                if (!isset($author_gen)) {
+                    $author_gen = $author;
+                }
+                if (isset($repost->signer_id)) {
+                    $repost_owner = $groups[abs($repost->owner_id)]->name;
+                    $repost_owner_url = "https://vk.com/{$groups[abs($repost->owner_id)]->screen_name}";
+                    if ($this->disable_html) {
+                        $repost_place = " в сообществе $repost_owner ($repost_owner_url)";
+                    } else {
+                        $repost_place = " в сообществе <a href='$repost_owner_url'>$repost_owner</a>";
+                    }
+                    $author .= $repost_place;
+                    $author_gen .= $repost_place;
+                    $author_ins .= $repost_place;
+                }
+                $repost_delimiter = preg_replace('/\{author\}/u', $author, $this->repost_delimiter);
+                $repost_delimiter = preg_replace('/\{author_ins\}/u', $author_ins, $repost_delimiter);
+                $repost_delimiter = preg_replace('/\{author_gen\}/u', $author_gen, $repost_delimiter);
+                array_push($description, $repost_delimiter);
+                $this->extractDescription($description, $repost, $profiles, $groups);
+                if (preg_match($this->delimiter_regex, end($description)) === 1) {
                     array_pop($description);
                 }
             }
@@ -487,7 +535,8 @@ class Vk2rss
      */
     protected function getContent($connector, $api_method, $offset = null)
     {
-        $url = self::API_BASE_URL . $api_method . '?v=5.54&extended=1';
+        $url = self::API_BASE_URL . $api_method
+            . '?v=5.54&extended=1&fields=first_name_ins,last_name_ins,first_name_gen,last_name_gen,screen_name';
         if (isset($this->access_token)) {
             $url .= "&access_token={$this->access_token}";
         }
@@ -533,9 +582,11 @@ class Vk2rss
         foreach ($raw_description as $par_idx => $par) {
             $description[$par_idx] = $par;
         }
+        $repost_delimiter_regex = '/^' . preg_replace('/\\\{author[^}]*\\\}/u', '.*', preg_quote($this->repost_delimiter, '/')) . '$/su';
         foreach ($description as $par_idx => &$paragraph) {
             if (preg_match('/^\s*(?:' . self::HASH_TAG_PATTERN . '\s*)*$/u', $paragraph) === 1 // paragraph contains only hash tags
-                || $paragraph === self::VERTICAL_DELIMITER) {
+                || preg_match($this->delimiter_regex, $paragraph) === 1
+                || preg_match($repost_delimiter_regex, $paragraph) === 1) {
                 unset($description[$par_idx]);
                 continue;
             }
@@ -546,7 +597,7 @@ class Vk2rss
                                                      '&quot;' => '"' ,
                                                      '&apos;' => '\''));
             }
-            if ($paragraph === self::VERTICAL_DELIMITER) {
+            if (preg_match($this->delimiter_regex, $paragraph) === 1) {
                 $paragraph = "";
             } else {
                 $paragraph = trim(preg_replace(self::TEXTUAL_LINK_PATTERN, self::TEXTUAL_LINK_REMOVE_PATTERN, $paragraph));

@@ -5,7 +5,7 @@ header("Content-type: text/xml; charset=utf-8");
 $supported_parameters = array('id', 'domain', 'owner_id', 'count', 'include', 'exclude',
                               'disable_html', 'owner_only', 'non_owner_only', 'not_owner_only', 'access_token',
                               'proxy', 'proxy_type', 'proxy_login', 'proxy_password',
-                              'allow_signed', 'skip_ads');
+                              'allow_signed', 'skip_ads', 'repost_delimiter');
 
 try {
     $params = array_keys($_GET);
