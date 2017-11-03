@@ -108,15 +108,23 @@ class Vk2rss
      */
     protected $proxy = null;
 
-    public function __construct($id, $count = 20, $include = null, $exclude = null, $disable_html=false,
-                                $owner_only = false, $non_owner_only = false, $access_token = null,
-                                $proxy = null, $proxy_type = null, $proxy_login = null, $proxy_password = null,
-                                $allow_signed = null, $skip_ads = false)
+    /**
+     * Vk2rss constructor.
+     * @param array $config    Parameters from the set: id, access_token,
+     *                           count, include, exclude, disable_html, owner_only, non_owner_only,
+     *                           allow_signed, skip_ads,
+     *                           proxy, proxy_type, proxy_login, proxy_password
+     *                         where id and access_token are required
+     * @throws Exception   If required parameters id or access_token do not present in the configuration
+     *                     or proxy parameters are invalid
+     */
+    public function __construct($config)
     {
-        if (empty($id) || empty($access_token)) {
+        if (empty($config['id']) || empty($config['access_token'])) {
             throw new Exception("Empty identifier of user or group or empty access/service token is passed", 400);
         }
-
+        $this->access_token = $config['access_token'];
+        $id = $config['id'];
         if (strcmp(substr($id, 0, 2), 'id') === 0 && ctype_digit(substr($id, 2))) {
             $this->owner_id = (int)substr($id, 2);
             $this->domain = null;
@@ -136,18 +144,22 @@ class Vk2rss
             $this->owner_id = null;
             $this->domain = $id;
         }
-        $this->count = $count;
-        $this->include = isset($include) && $include !== '' ? preg_replace("/(?<!\\\)\//u", "\\/", $include) : null;
-        $this->exclude = isset($exclude) && $exclude !== '' ? preg_replace("/(?<!\\\)\//u", "\\/", $exclude) : null;
-        $this->disable_html = $disable_html;
-        $this->owner_only = $owner_only;
-        $this->non_owner_only = $non_owner_only;
-        $this->allow_signed = $allow_signed;
-        $this->skip_ads = $skip_ads;
-        $this->access_token = $access_token;
-        if (isset($proxy)) {
+        $this->count = empty($config['count']) ? 20 : $config['count'];
+        $this->include = isset($config['include']) && $config['include'] !== ''
+            ? preg_replace("/(?<!\\\)\//u", "\\/", $config['include']) : null;
+        $this->exclude = isset($config['exclude']) && $config['exclude'] !== ''
+            ? preg_replace("/(?<!\\\)\//u", "\\/", $config['exclude']) : null;
+        $this->disable_html = logical_value($config, 'disable_html');
+        $this->owner_only = logical_value($config, 'owner_only');
+        $this->non_owner_only = logical_value($config, 'non_owner_only') || logical_value($config, 'not_owner_only');
+        $this->allow_signed = logical_value($config, 'allow_signed');
+        $this->skip_ads =  logical_value($config, 'skip_ads');
+        if (isset($config['proxy'])) {
             try {
-                $this->proxy = new ProxyDescriptor($proxy, $proxy_type, $proxy_login, $proxy_password);
+                $this->proxy = new ProxyDescriptor($config['proxy'],
+                                                   isset($config['proxy_type']) ? $config['proxy_type'] : null,
+                                                   isset($config['proxy_login']) ? $config['proxy_login'] : null,
+                                                   isset($config['proxy_password']) ? $config['proxy_password'] : null);
             } catch (Exception $exc) {
                 throw new Exception("Invalid proxy parameters: " . $exc->getMessage(), 400);
             }

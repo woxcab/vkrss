@@ -16,6 +16,23 @@ function utf8_strrev($str)
     return join('', array_reverse($ar[0]));
 }
 
+
+/**
+ * Get logical value of array element
+ *
+ * @param array $array   array
+ * @param string $key   checked key
+ * @return bool   False IF key does not present in the array
+ *                OR value $array[$key] is 0 or false like (0, '0', false, 'false', 'FALSE', etc.),
+ *                OTHERWISE True (including empty string '' value)
+ */
+function logical_value($array, $key) {
+    return isset($array[$key])
+        && (!empty($array[$key]) || $array[$key] === '')
+        && mb_strtolower($array[$key]) !== 'false';
+}
+
+
 /**
  * Build URL from components (oppositely to the parse_url function).
  *

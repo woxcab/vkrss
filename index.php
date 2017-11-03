@@ -21,24 +21,9 @@ try {
     $id = isset($_GET['id']) ? $_GET['id'] :
         (isset($_GET['domain']) ? $_GET['domain'] :
             (isset($_GET['owner_id']) ? $_GET['owner_id'] : null));
-    $vk2rss = new Vk2rss(
-        $id,
-        !empty($_GET['count']) ? $_GET['count'] : 20,
-        isset($_GET['include']) ? $_GET['include'] : null,
-        isset($_GET['exclude']) ? $_GET['exclude'] : null,
-        isset($_GET['disable_html']),
-        isset($_GET['owner_only']),
-        isset($_GET['non_owner_only']) || isset($_GET['not_owner_only']),
-        isset($_GET['access_token']) ? $_GET['access_token'] : null,
-        isset($_GET['proxy']) ? $_GET['proxy'] : null,
-        isset($_GET['proxy_type']) ?  mb_strtolower($_GET['proxy_type']) : null,
-        isset($_GET['proxy_login']) ? $_GET['proxy_login'] : null,
-        isset($_GET['proxy_password']) ? $_GET['proxy_password'] : null,
-        isset($_GET['allow_signed']) ?
-            ($_GET['allow_signed'] === ""
-                || (mb_strtolower($_GET['allow_signed']) === "false" ? false : $_GET['allow_signed']))
-            : null,
-        isset($_GET['skip_ads']));
+    $config = array('id' => $id);
+    $config = array_merge($config, $_GET);
+    $vk2rss = new Vk2rss($config);
     $vk2rss->generateRSS();
 } catch (APIError $exc) {
     header("Content-type: text/plain; charset=utf-8");
