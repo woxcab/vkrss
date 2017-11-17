@@ -209,12 +209,18 @@ class Vk2rss
             }
 
             foreach ($wall_response->response->profiles as $profile) {
-                $profiles[$profile->id] = $profile;
+                if (!isset($profile->screen_name)) {
+                    $profile->screen_name = "id{$profile->id}";
+                }
                 $profiles[$profile->screen_name] = $profile;
+                $profiles[$profile->id] = $profile;
             }
             foreach ($wall_response->response->groups as $group) {
-                $groups[$group->id] = $group;
+                if (!isset($group->screen_name)) {
+                    $group->screen_name = "club{$group->id}";
+                }
                 $groups[$group->screen_name] = $group;
+                $groups[$group->id] = $group;
             }
 
             foreach ($wall_response->response->items as $post) {
