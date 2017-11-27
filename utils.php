@@ -346,7 +346,8 @@ class ConnectionWrapper
             $request_url = empty($https_url) ? preg_replace('/^http:/ui', 'https:', $url) : $https_url;
         } else {
             if (mb_substr($url, 0, 5) === "https") {
-                throw new Exception("Cannot send request through HTTPS protocol. Only HTTP protocol is allowed by configuration and your arguments");
+                throw new Exception("Cannot send request through HTTPS protocol. "
+                                    . "Only HTTP protocol is allowed by configuration and your arguments", 400);
             }
             $request_url = $url;
         }
@@ -358,7 +359,8 @@ class ConnectionWrapper
                 if (empty($body)) {
                     $error_msg = error_get_last();
                     throw new Exception("Cannot retrieve data from URL '${request_url}'"
-                        . (isset($error_msg) ? ": ${error_msg['message']}" : ''), isset($response_code) ? $response_code : 500);
+                                        . (isset($error_msg) ? ": ${error_msg['message']}" : ''),
+                                        (!empty($response_code) && $response_code != 200) ? $response_code : 500);
                 }
                 if ($response_code != 200) {
                     throw new Exception($body, $response_code);
@@ -368,7 +370,10 @@ class ConnectionWrapper
                 curl_setopt($this->curlHandler, CURLOPT_URL, $request_url);
                 $response = curl_exec($this->curlHandler);
                 if (empty($response)) {
-                    throw new Exception("Cannot retrieve data from URL '${request_url}': " . curl_error($this->curlHandler));
+                    $response_code = curl_getinfo($this->curlHandler, CURLINFO_HTTP_CODE);
+                    throw new Exception("Cannot retrieve data from URL '${request_url}': "
+                                        . curl_error($this->curlHandler),
+                                        in_array($response_code, array(0, 200)) ? 500 : $response_code);
                 }
                 $split_response = explode("\r\n\r\n", $response, 3);
                 if (isset($split_response[2])) {
@@ -381,11 +386,13 @@ class ConnectionWrapper
                 list($header, ) = explode("\r\n", $header, 2);
                 $response_code = (int)substr($header, 9, 3);
                 if ($response_code != 200) {
-                    throw new Exception("Cannot retrieve data from URL '${request_url}': " . substr($header, 13), $response_code);
+                    throw new Exception("Cannot retrieve data from URL '${request_url}': " . substr($header, 13)
+                                        . ": ["  . curl_errno($this->curlHandler) . "] ". curl_error($this->curlHandler),
+                                        $response_code == 0 ? 500 : $response_code);
                 }
                 break;
             default:
-                throw new ErrorException();
+                throw new ErrorException("", 500);
         }
         return $body;
     }
