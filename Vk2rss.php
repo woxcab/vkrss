@@ -62,7 +62,7 @@ class Vk2rss
     /**
      * URL of API method that returns wall posts
      */
-    const API_BASE_URL = 'http://api.vk.com/method/'; # do not change on HTTPS, connection wrapper do it itself if HTTPS is supported
+    const API_BASE_URL = 'https://api.vk.com/method/';
 
     /**
      * @var int   identifier of user or group which wall going to be extracted
