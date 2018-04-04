@@ -267,12 +267,12 @@ class Vk2rss
                 $new_item->addElement('title', $this->getTitle($description));
                 $new_item->addElement("comments", "https://vk.com/wall{$post->owner_id}_{$post->id}");
                 $new_item->addElement("slash:comments", $post->comments->count);
-                if (isset($post->signer_id)) {
+                if (isset($post->signer_id) && isset($profiles[$post->signer_id])) { # the 2nd owing to VK API bug
                     $profile = $profiles[$post->signer_id];
                     $new_item->addElement('author', $profile->first_name . ' ' . $profile->last_name);
                 } else {
                     $base_post = isset($post->copy_history) ? end($post->copy_history) : $post;
-                    if (isset($base_post->signer_id)) {
+                    if (isset($base_post->signer_id) && isset($profiles[$base_post->signer_id])) { # the 2nd owing to VK API bug
                         $profile = $profiles[$base_post->signer_id];
                         $new_item->addElement('author', $profile->first_name . ' ' . $profile->last_name);
                     } elseif ($base_post->from_id > 0) {
