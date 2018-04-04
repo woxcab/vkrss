@@ -5,10 +5,10 @@
 # <a name="eng"></a> Generating RSS Feed for opened or closed wall of user or community (group, public page or event page) on vk.com
 
 ## Features
-* Generating RSS feed of opened walls: data extraction from different
+* Generating RSS feed of opened wall: data extraction from different
   post parts (attachments included) and automatic title generation
   of RSS items.
-* Also generating RSS feed of closed walls if there's access token
+* Also generating RSS feed of closed wall if there's access token
   with offline permissions that's created by user who has access
   to the closed wall. [See more here](#eng-user-access-token)
   about user access token creating.
@@ -259,9 +259,9 @@ so URL-encoding can be required for the direct call:
 
 
 ## Возможности:
-* Получение RSS-ленты открытых стен: извлечение описания из разных частей
+* Получение RSS-ленты открытой стены: извлечение описания из разных частей
   (включая вложения) и построение заголовков на основе описания.
-* Также получение RSS-ленты закрытых стен при наличии токена с правами оффлайн-доступа,
+* Также получение RSS-ленты закрытой стены при наличии токена с правами оффлайн-доступа,
   привязанного к профилю, которому открыт доступ к такой стене.
   [Ниже описан один из способов получения токена](#rus-user-access-token).
 * Получение [произвольного количества](#rus-count) записей со стены.
