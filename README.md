@@ -12,6 +12,8 @@
   with offline permissions that's created by user who has access
   to the closed wall. [See more here](#eng-user-access-token)
   about user access token creating.
+* Generating RSS feed for different opened walls based on 
+  [global search](#eng-global-search) results.
 * Feeding [arbitrary number](#eng-count) of posts.
 * Posts filtering [by author](#eng-owning): all posts, posts by community/profile owner
   only or all posts except posts by community/profile owner.
@@ -51,10 +53,13 @@ in the script output and in the server/interpreter logfile.
 ## Parameters
 Main `index.php` script accepts the below GET-parameters.
 
-`id` and `access_token` parameters are required, another parameters are optional.
+`id` and `access_token` **OR** `global_search` and `access_token` parameters 
+are required, another parameters are optional. 
+`id` and `global_search` parameters **cannot** be used together.
 
-* [required] `id` is short name, ID number (community ID is started with `-` sign)
+* [conditionally required] `id` is short name, ID number (community ID is started with `-` sign)
   or full identifier (like idXXXX, clubXXXX, publicXXXX, eventXXXX) of profile or community.
+  Only its single wall is processed.
   Examples of a valid values:
   * `123456`, `id123456` — both of these values identify the user profile with ID 123456,
   * `-123456`, `club123456` — both of these values identify the group with ID 123456,
@@ -62,7 +67,12 @@ Main `index.php` script accepts the below GET-parameters.
   * `-123456`, `event123456` — both of these values identify the event with ID 123456,
   * `apiclub` — value identifies the user profile or community with this short name.
 
-  Deprecated `domain` and `owner_id` parameters are allowed and are identical to `id`.
+  Deprecated `domain` and `owner_id` parameters are allowed and they're identical to `id`.
+* <a name="eng-global-search"></a> [conditionally required] 
+  `global_search` is an arbitrary text search query to lookup on all **opened** walls.
+  It uses internal VK algorithms to search posts that're published by wall's **owner**.
+  Search results are the same as on [this search page](https://vk.com/search?c[section]=statuses).
+  
 * [required] `access_token` is
   * either service token that's specified in the app settings
     (you can create your own standalone application
@@ -71,22 +81,34 @@ Main `index.php` script accepts the below GET-parameters.
     Service token allows to fetch only opened for everyone walls.
   * or [user access token with offline permissions](#eng-user-access-token)
 
-    User access token allows to fetch both opened and closed walls that're opened for this user.
+    If you uses `id` parameter then user access token allows 
+    to fetch both opened and closed walls that're opened for this user.
 
     Warning: If user terminates all sessions in the security settings of profile
     then him access token becomes invalid; in that case, user must create new access token.
-* <a name="eng-count"></a> `count` is number of processing posts starting with the latest published post.
+    
+   If you uses `global_search` then service and user access tokens give equivalent results,
+   i.e. only opened walls is processed.
+* <a name="eng-count"></a> `count` is a number of processing posts 
+  starting with the latest published post.
   It's arbitrary amount including more than 100.
-  If it's more 100 then multiple requests will be sent because
-  VK API allows to fetch no more than 100 posts at a time.
-  Delay between requests is equal to 1 sec in order to satisfy VK API limits
-  (no more than 3 requests per second).
 
   *Default value*: 20.
 
   If `owner_only`, `non_owner_only`, `include`, `exclude` or `skip_ads`
   parameters are passed then amount of posts in the result RSS feed can be
   less than `count` because some post can be skipped by these parameters.
+  
+  If `global_search` is passed then maximum value of `count` is **1000**,
+  API requests number can be no more than **1000 requests per day**, 
+  and each request can fetch no more than 200 posts.
+  
+  Delay between requests is equal to 1 sec in order to satisfy VK API limits
+  (no more than 3 requests per second).
+  
+  If `id` is passed then `count` is unlimited, but API requests number can be no more than 
+  **5000 requests per day** and each request can fetch no more than 100 posts.
+  
 * <a name="eng-repost-delimiter"></a> `repost_delimiter` is a string that's placed
   between parent and child posts; in other words, it's a header of a child post
   in the repost.
@@ -231,6 +253,7 @@ index.php?id=club1&non_owner_only&access_token=XXXXXXXXX   # feed contains only 
 index.php?id=club1&non_owner_only&allow_signed&access_token=XXXXXXXXX   # feed contains only posts by users
                                                                         # and community posts with signature
 index.php?id=-1&count=100&include=(new|wall|\d+)&access_token=XXXXXXXXX
+index.php?global_search=query&count=300&access_token=XXXXXXXXX # search posts that contains 'query'
 index.php?id=-1&count=30&repost_delimiter=<hr><hr>Written by {author}:&access_token=XXXXXXXXX
 ```
 **Note**: one parameter contains special characters in the last example,
@@ -264,6 +287,8 @@ so URL-encoding can be required for the direct call:
 * Также получение RSS-ленты закрытой стены при наличии токена с правами оффлайн-доступа,
   привязанного к профилю, которому открыт доступ к такой стене.
   [Ниже описан один из способов получения токена](#rus-user-access-token).
+* Получение RSS-ленты, содержащей записи с различных открытых стен, 
+  которые соответствуют [глобальному поисковому запросу](#rus-global-search).
 * Получение [произвольного количества](#rus-count) записей со стены.
 * Получение записей, [опубликованных](#rus-owning) от кого угодно, от имени
   сообщества/владельца страницы или ото всех, кроме сообщества/владельца страницы.
@@ -307,10 +332,12 @@ so URL-encoding can be required for the direct call:
 ## Параметры
 Основной скрипт `index.php` принимает следующие GET-параметры.
 
-Параметры `id` и `access_token` обязательны, остальные необязательны.
+Пара параметров `id` и `access_token` **ИЛИ** `global_search` и `access_token` 
+обязательна, остальные параметры необязательны.
 
-* [обязательный] `id` — короткое название, ID-номер (в случае сообщества ID начинается со знака `-`)
-  или полный идентификатор человека/сообщества (в виде idXXXX, clubXXXX, publicXXXX, eventXXXX).
+* [условно обязательный] `id` — короткое название, ID-номер (в случае сообщества ID начинается со знака `-`)
+  или полный идентификатор человека/сообщества (в виде idXXXX, clubXXXX, publicXXXX, eventXXXX), 
+  для которого будет строиться RSS-лента.
   Примеры допустимых значений параметра `id`:
   * `123456`, `id123456` — оба значения указывают на одну и ту же страницу пользователя с ID 123456,
   * `-123456`, `club123456` — оба значения указывают на одну и ту же группу с ID 123456,
@@ -320,6 +347,13 @@ so URL-encoding can be required for the direct call:
 
   Ради обратной совместимости допускается вместо `id` использовать `domain` или `owner_id`.
 
+* <a name="rus-global-search"></a> [условно обязательный] `global_search` —
+  произвольный текстовый глобальный поисковый запрос, по которому 
+  с помощью внутренних алгоритмов ВКонтакте ищутся
+  записи со всех открытых стен, опубликованные владельцем профиля пользователя 
+  или от имени сообщества. Результаты поиска аналогичны результатам 
+  [на этой поисковой странице](https://vk.com/search?c%5Bsection%5D=statuses).
+
 * [обязательный] `access_token` —
    * Либо сервисный ключ доступа, который указан в настройках приложения
      (создать собственное standalone-приложение можно
@@ -328,23 +362,37 @@ so URL-encoding can be required for the direct call:
      Сервисный ключ доступа дает возможность получать записи только с открытых для всех стен.
    * Либо [ключ доступа пользователя с правами оффлайн-доступа](#rus-user-access-token).
 
-     Ключ доступа пользователя позволяет получать записи как с открытых,
-     так и закрытых стен (но открытых для пользователя, который создал токен).
+     При использовании параметра `id` ключ доступа пользователя позволяет 
+     получать записи как с открытых, так и закрытых стен 
+     (но открытых для пользователя, который создал токен).
 
      Предупреждение: если в настройках безопасности пользователя будут завершены все сессии,
      то ключ доступа пользователя станет невалидным — нужно сформировать ключ заново.
+    
+   Если используется параметр `global_search`, тогда генерируемые RSS-ленты
+   при использовании сервисного ключа доступа и при использовании ключа 
+   доступа пользователя одинаковы, 
+   т.е. в любом случае все записи будут лишь с открытых стен.
 
-* <a name="rus-count"></a> `count` — количество обрабатываемых записей, начиная с последней опубликованной
+* <a name="rus-count"></a> `count` — количество обрабатываемых записей, 
+  начиная с последней опубликованной
   (произвольное количество, включая более 100, *по умолчанию 20*).
-  Если значение больше 100, то будет отправляться несколько запросов
-  для получения записей, т.к. за один запрос можно получить не более
-  100 записей; между запросами задержка минимум в 1 секунду, чтобы
-  не превышать ограничения VK API (не более 3 запросов в секунду).
-
+  
   Если дополнительно установлены параметры `owner_only`, `non_owner_only`,
   `include`, `exclude` или `skip_ads`, то количество выводимых в RSS-ленте
   записей может быть меньше значения `count` за счет исключения записей,
   которые отсеиваются этими параметрами.
+  
+  Если передан параметр `id`, то значение `count` неограниченно, но VK API
+  позволяет делать не более **5000 запросов в сутки**, а каждый запрос может 
+  получить не более 100 записей.
+  
+  Если передан параметр `global_search`, то значение `count` не может быть
+  больше **1000**, при этом VK API позволяет делать не более **1000 запросов в сутки**,
+  каждый из которых может извлечь не более 200 записей.
+  
+  Между запросами задержка минимум в 1 секунду, чтобы
+  не превышать ограничения VK API (не более 3 запросов в секунду).
 
 * <a name="rus-repost-delimiter"></a> `repost_delimiter` — разделитель
   между родительской и дочерней записью (когда профиль/сообщество [«родитель»]
@@ -523,6 +571,7 @@ index.php?id=club1&non_owner_only&access_token=XXXXXXXXX   # выводятся 
 index.php?id=club1&non_owner_only&allow_signed&access_token=XXXXXXXXX   # выводятся только записи от имени сообщества,
                                                                         # у которых есть подпись, и записи от пользователей
 index.php?id=-1&count=100&include=(рекомендуем|приглашаем|\d+)&access_token=XXXXXXXXX
+index.php?global_search=запрос&count=300&access_token=XXXXXXXXX # поиск записей, содержащих слово "запрос"
 index.php?id=-1&count=30&repost_delimiter=<hr><hr>{author} пишет:&access_token=XXXXXXXXX
 ```
 **Примечание**: в последнем примере при таком вызове напрямую через

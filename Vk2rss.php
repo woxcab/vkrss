@@ -52,6 +52,10 @@ class Vk2rss
      */
     const GROUP_FEED_DESCRIPTION_PREFIX = "Стена сообщества ";
     /**
+     * Feed title and description prefix when global searching is performed
+     */
+    const GLOBAL_SEARCH_FEED_TITLE_PREFIX = "Результаты поиска по запросу ";
+    /**
      * Maximum title length in symbols
      */
     const MAX_TITLE_LENGTH = 80;
@@ -72,6 +76,10 @@ class Vk2rss
      * @var string   short address of user or group which wall going to be extracted
      */
     protected $domain;
+    /**
+     * @var string   search query to lookup on all opened walls
+     */
+    protected $global_search;
     /**
      * @var int   quantity of last posts from the wall (at most 100)
      */
@@ -115,8 +123,10 @@ class Vk2rss
      */
     public function __construct($config)
     {
-        if (empty($config['id']) || empty($config['access_token'])) {
-            throw new Exception("Empty identifier of user or group or empty access/service token is passed", 400);
+        if (!((empty($config['id']) xor empty($config['global_search']))
+              && !empty($config['access_token']))) {
+            throw new Exception("Identifier of user or community and access/service token ".
+                                "OR global search query and access/service token must be passed", 400);
         }
         $this->access_token = $config['access_token'];
         $id = $config['id'];
@@ -139,6 +149,7 @@ class Vk2rss
             $this->owner_id = null;
             $this->domain = $id;
         }
+        $this->global_search = empty($config['global_search']) ? null : $config['global_search'];
         $this->count = empty($config['count']) ? 20 : $config['count'];
         $this->include = isset($config['include']) && $config['include'] !== ''
             ? preg_replace("/(?<!\\\)\//u", "\\/", $config['include']) : null;
@@ -197,15 +208,25 @@ class Vk2rss
 
         $profiles = array();
         $groups = array();
-        for ($offset = 0; $offset < $this->count; $offset += 100) {
+        $next_from = null;
+        $offset_step = empty($this->global_search) ? 100 : 200;
+        for ($offset = 0; $offset < $this->count; $offset += $offset_step) {
             sleep(1);
-            $wall_response = $this->getContent($connector, "wall.get", $offset);
+            if (empty($this->global_search)) {
+                $wall_response = $this->getContent($connector, "wall.get", $offset);
+            } else {
+                $wall_response = $this->getContent($connector, "newsfeed.search", $next_from);
+            }
             if (property_exists($wall_response, 'error')) {
                 throw new APIError($wall_response, $connector->getLastUrl());
             }
 
             if (empty($wall_response->response->items)) {
                 break;
+            }
+            if (!empty($this->global_search)) {
+                $next_from = empty($wall_response->response->next_from)
+                    ? null : $wall_response->response->next_from;
             }
 
             foreach ($wall_response->response->profiles as $profile) {
@@ -292,25 +313,31 @@ class Vk2rss
 
                 $feed->addItem($new_item);
             }
+            if (!empty($this->global_search) && is_null($next_from)) {
+                break;
+            }
         }
 
         try {
-            if (!empty($this->domain) && isset($profiles[$this->domain])
+            if (!empty($this->global_search)) {
+                $feed_title = self::GLOBAL_SEARCH_FEED_TITLE_PREFIX . '"' . $this->global_search . '"';
+                $feed_description = $feed_title;
+            } elseif (!empty($this->domain) && isset($profiles[$this->domain])
                 || (!empty($this->owner_id) && $this->owner_id > 0)
             ) {
                 $profile = isset($profiles[$this->domain]) ? $profiles[$this->domain] : $profiles[$this->owner_id];
-                $title = $profile->first_name . ' ' . $profile->last_name;
+                $feed_title = $profile->first_name . ' ' . $profile->last_name;
                 $feed_description = self::USER_FEED_DESCRIPTION_PREFIX . $profile->first_name . ' ' . $profile->last_name;
             } else {
                 $group = isset($groups[$this->domain]) ? $groups[$this->domain] : $groups[abs($this->owner_id)];
-                $title = $group->name;
+                $feed_title = $group->name;
                 $feed_description = self::GROUP_FEED_DESCRIPTION_PREFIX . $group->name;
             }
         } catch (Exception $exc) {
-            throw new Exception("Invalid user or group identifier or its wall is empty", 400);
+            throw new Exception("Invalid user/group identifier, its wall is empty, or empty search result", 400);
         }
 
-        $feed->setTitle($title);
+        $feed->setTitle($feed_title);
         $feed->setDescription($feed_description);
 
         $feed->generateFeed();
@@ -553,17 +580,28 @@ class Vk2rss
                 } else {
                     $url .= "&owner_id={$this->owner_id}";
                 }
+                $default_count = 100;
                 if (!empty($offset)) {
-                    $count = min($this->count - $offset, 100);
                     $url .= "&offset=${offset}";
-                } else {
-                    $count = min($this->count, 100);
                 }
-                $url .= "&count={$count}";
+                break;
+            case "newsfeed.search":
+                $url .= "&q=" . urlencode($this->global_search);
+                $default_count = 200;
+                if (!empty($offset)) {
+                    $url .= "&start_from=${offset}";
+                }
                 break;
             default:
-                throw new Exception("Passed unsupported API method name '${api_method}'", 400);
+                throw new Exception("Passed unsupported VK API method name '${api_method}'", 400);
         }
+        if (!empty($offset)) {
+            $count = min($this->count - $offset, $default_count);
+        } else {
+            $count = min($this->count, $default_count);
+        }
+        $url .= "&count={$count}";
+
         $connector->openConnection();
         $content = null;
         try {
