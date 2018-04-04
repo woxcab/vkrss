@@ -653,7 +653,7 @@ class Vk2rss
         $full_title = implode(' ', array_slice($description, 0, $slice_length));
         if (mb_strlen($full_title) > self::MAX_TITLE_LENGTH) {
             $split = preg_split('/\s+/u', utf8_strrev(mb_substr($full_title, 0, self::MAX_TITLE_LENGTH)), 2);
-            $full_title = utf8_strrev($split[1]);
+            $full_title = isset($split[1]) ? utf8_strrev($split[1]) : utf8_strrev($split[0]);
 
             $last_char = mb_substr($full_title, -1);
             if (in_array($last_char, array(',', ':', ';', '-'))) {
