@@ -584,6 +584,9 @@ class Vk2rss
      */
     protected function getTitle($raw_description)
     {
+        if (empty($raw_description)) {
+            return self::EMPTY_POST_TITLE;
+        }
         $description = array_fill(0, count($raw_description), null);
         foreach ($raw_description as $par_idx => $par) {
             $description[$par_idx] = $par;
