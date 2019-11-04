@@ -427,13 +427,25 @@ class Vk2rss
                         if (!empty($attachment->doc->preview->photo)) {
                             $photos = $attachment->doc->preview->photo->sizes;
                             $preview_url = $photos[min(2, count($photos)-1)]->src;
-                            $photo_url = end($photos)->src;
+                            $photos = array_reverse($photos);
+                            $photo_max_area = 0;
+                            $photo_url = $photos[0]->src;
+                            foreach ($photos as $photo) {
+                                if (isset($photo->width) && isset($photo->height)) {
+                                    $photo_area = intval($photo->width * $photo->height);
+                                    if ($photo_area > $photo_max_area) {
+                                        $photo_max_area = $photo_area;
+                                        $photo_url = $photo->src;
+                                    }
+                                }
+                            }
                             if ($this->disable_html) {
                                 array_push($description, "Изображение «{$attachment->doc->title}»: {$photo_url} ({$url})");
                             } else {
                                 array_push($description,
                                            $this->attachment_delimiter,
-                                           "<a href='{$url}'>Изображение «{$attachment->doc->title}»</a>: <a href='{$photo_url}'><img src='{$preview_url}'/></a>");
+                                           "<a href='{$url}'>Изображение «{$attachment->doc->title}»</a>:",
+                                           "<a href='{$photo_url}'><img src='{$preview_url}'/></a>");
                             }
                         } else {
                             if ($this->disable_html) {
