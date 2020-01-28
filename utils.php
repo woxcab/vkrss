@@ -383,6 +383,10 @@ class ConnectionWrapper
                     $header = $split_response[0];
                     $body = $split_response[1];
                 }
+                if (empty($body)) {
+                    throw new Exception("Cannot retrieve data from URL '${request_url}': empty body",
+                                        503);
+                }
                 list($header, ) = explode("\r\n", $header, 2);
                 $response_code = (int)substr($header, 9, 3);
                 if ($response_code != 200) {
