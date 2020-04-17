@@ -34,9 +34,9 @@ function exceptions_error_handler($severity, $message, $filename, $lineno) {
 class Vk2rss
 {
     const HASH_TAG_PATTERN = '#([а-яёА-ЯЁa-zA-Z0-9_]+)(?:@[a-zA-Z0-9_]+)?';
-    const TEXTUAL_LINK_PATTERN = '@(?:(\s*)\b(https?://\S+?)(?=[.,!?;:»”’"]?(?:\s|$))|(\()(https?://\S+?)(\))|(\([^(]*?)(\s*)\b(\s*https?://\S+?)([.,!?;:»”’"]?\s*\)))@u';
-    const TEXTUAL_LINK_REPLACE_PATTERN = '$1$3$6$7<a href=\'$2$4$8\'>$2$4$8</a>$5$9';
-    const TEXTUAL_LINK_REMOVE_PATTERN = '$3$6';
+    const TEXTUAL_LINK_PATTERN = '@(?:\[(https?://vk\.com/[^|]*)\|([^\]]+)\]|(\s*)\b(https?://\S+?)(?=[.,!?;:»”’"]?(?:\s|$))|(\()(https?://\S+?)(\))|(\([^(]*?)(\s*)\b(\s*https?://\S+?)([.,!?;:»”’"]?\s*\)))@u';
+    const TEXTUAL_LINK_REPLACE_PATTERN = '$3$5$8$9<a href=\'$1$4$6${10}\'>$2$4$6${10}</a>$7${11}';
+    const TEXTUAL_LINK_REMOVE_PATTERN = '$2$5$8';
     const EMPTY_STRING_PATTERN = '@^(?:[\s ]*(?:<br/?>|\n)+[\s ]*)*$@u';
 
     /**
