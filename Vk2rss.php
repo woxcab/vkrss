@@ -480,7 +480,11 @@ class Vk2rss
                         break;
                     }
                     case 'video': {
-                        $video_text = $attachment->video->description;
+                        if (isset($attachment->video->restriction)) {
+                            $video_text = $attachment->video->restriction->text;
+                        } else {
+                            $video_text = $attachment->video->description;
+                        }
                         if (!$this->disable_html) {
                             $video_text = preg_replace(self::TEXTUAL_LINK_PATTERN,
                                                        self::TEXTUAL_LINK_REPLACE_PATTERN,
