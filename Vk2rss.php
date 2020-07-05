@@ -370,6 +370,8 @@ class Vk2rss
                     case 'photo': {
                         $photo_sizes = array_values(preg_grep('/^photo_/u',
                                                               array_keys(get_object_vars($attachment->photo))));
+                        natsort($photo_sizes);
+                        $photo_sizes = array_values($photo_sizes);
                         $photo_text = preg_replace('|^Original: https?://\S+\s*|u',
                                                    '',
                                                    $attachment->photo->text);
@@ -395,6 +397,8 @@ class Vk2rss
                     case 'album': {
                         $thumb_sizes = array_values(preg_grep('/^photo_/u',
                                                               array_keys(get_object_vars($attachment->album->thumb))));
+                        natsort($thumb_sizes);
+                        $thumb_sizes = array_values($thumb_sizes);
                         $album_title = $attachment->album->title;
                         $album_url = "https://vk.com/album" . $attachment->album->owner_id . "_" . $attachment->album->id;
                         array_push($description, $this->attachment_delimiter);
@@ -504,6 +508,8 @@ class Vk2rss
                             array_push($content, "https://vk.com/video{$attachment->video->owner_id}_{$attachment->video->id}");
                         } else {
                             $preview_sizes = array_values(preg_grep('/^photo_/u', array_keys(get_object_vars($attachment->video))));
+                            natsort($preview_sizes);
+                            $preview_sizes = array_values($preview_sizes);
                             $preview_size = isset($preview_sizes[2]) ? $preview_sizes[2] : end($preview_sizes);
                             array_push($content, "<a href='https://vk.com/video{$attachment->video->owner_id}_{$attachment->video->id}'><img src='{$attachment->video->{$preview_size}}'/></a>");
                         }
