@@ -299,8 +299,14 @@ class Vk2rss
                     } elseif ($base_post->from_id > 0) {
                         $profile = $profiles[$base_post->from_id];
                         $new_item->addElement('author', $profile->first_name . ' ' . $profile->last_name);
-                    } else {
+                    } elseif ($base_post->from_id < 0) {
                         $group = $groups[abs($base_post->from_id)];
+                        $new_item->addElement('author', $group->name);
+                    } elseif ($base_post->owner_id > 0) {
+                        $profile = $profiles[$base_post->owner_id];
+                        $new_item->addElement('author', $profile->first_name . ' ' . $profile->last_name);
+                    } elseif ($base_post->owner_id < 0) {
+                        $group = $groups[abs($base_post->owner_id)];
                         $new_item->addElement('author', $group->name);
                     }
                 }
