@@ -102,12 +102,29 @@ class Vk2rss
      */
     protected $disable_comments_amount;
     /**
-     * @var bool   whether the post for feed should be sent by community/profile owner
+     * @var bool   whether the post should be published by community/profile owner only
      */
     protected $owner_only;
     /**
-     * @var string|null   Service token for access to opened walls (there's in app settings)
-     *                    or user access token for access to closed walls that opened for token creator
+     * @var bool   whether the post should be published by anyone except community/profile owner
+     */
+    protected $non_owner_only;
+    /**
+     * @var bool   whether posts (that's published by community) with signature are allowed
+     *             when owner_only or non_owner_only/not_owner_only parameter is passed
+     */
+    protected $allow_signed;
+    /**
+     * @var bool   whether posts are skipped that's marked as ad
+     */
+    protected $skip_ads;
+    /**
+     * @var string   text or HTML formatted string that's placed between parent and child posts
+     */
+    protected $repost_delimiter;
+    /**
+     * @var string|null   Service token to get access to opened walls (there's in app settings)
+     *                    or user access token to get access to closed walls that opened for token creator
      */
     protected $access_token;
 
@@ -115,6 +132,16 @@ class Vk2rss
      * @var ProxyDescriptor|null   Proxy descriptor
      */
     protected $proxy = null;
+
+    /**
+     * @var string   text or HTML formatted string that's placed between post' content and the first attachment,
+     *               and between attachments
+     */
+    protected $attachment_delimiter;
+    /**
+     * @var string   regular expression that matches delimiter
+     */
+    protected $delimiter_regex;
 
     /**
      * Vk2rss constructor.
@@ -190,6 +217,8 @@ class Vk2rss
 
     /**
      * Generate RSS feed as output
+     *
+     * @throws Exception
      */
     public function generateRSS()
     {
