@@ -148,7 +148,7 @@ are required, another parameters are optional.
 
   *By default* HTML formatting is applied for links and images.
 * <a name="eng-comments-counter"></a> `disable_comments_amount` passing (including absent value) indicates that RSS item 
-  must be without amount of comments (`<splash:comments>`).
+  must be without amount of comments (`<slash:comments>`).
   
   *By default* feed item contains number of comments.
 * <a name="eng-owning"></a> `owner_only` passing (including absent value) indicates that RSS must
@@ -461,7 +461,7 @@ so URL-encoding can be required for the direct call:
   *По умолчанию* (отсутствие `disable_html`) описание может включать
   HTML-теги для создания гиперссылок и вставки изображений.
 * <a name="rus-comments-counter"></a> `disable_comments_amount` — если передан (можно без значения),
-  то в RSS-ленте не будет счетчика комментариев у каждой записи (`<splash:comments>`).
+  то в RSS-ленте не будет счетчика комментариев у каждой записи (`<slash:comments>`).
 
   *По умолчанию* у каждой записи указано текущее количество комментариев.
 * <a name="rus-owning"></a> `owner_only` — если передан (можно без значения),
