@@ -96,6 +96,11 @@ class Vk2rss
      * @var bool   whether the HTML tags to be used in the feed item description
      */
     protected $disable_html;
+
+    /**
+     * @var bool   whether <splash:comments> (comments amount) should be presented in the feed item
+     */
+    protected $disable_comments_amount;
     /**
      * @var bool   whether the post for feed should be sent by community/profile owner
      */
@@ -115,7 +120,7 @@ class Vk2rss
      * Vk2rss constructor.
      * @param array $config    Parameters from the set: id, access_token,
      *                           count, include, exclude, disable_html, owner_only, non_owner_only,
-     *                           allow_signed, skip_ads, repost_delimiter,
+     *                           disable_comments_amount, allow_signed, skip_ads, repost_delimiter,
      *                           proxy, proxy_type, proxy_login, proxy_password
      *                         where id and access_token are required
      * @throws Exception   If required parameters id or access_token do not present in the configuration
@@ -156,6 +161,7 @@ class Vk2rss
         $this->exclude = isset($config['exclude']) && $config['exclude'] !== ''
             ? preg_replace("/(?<!\\\)\//u", "\\/", $config['exclude']) : null;
         $this->disable_html = logical_value($config, 'disable_html');
+        $this->disable_comments_amount = logical_value($config, 'disable_comments_amount');
         $this->owner_only = logical_value($config, 'owner_only');
         $this->non_owner_only = logical_value($config, 'non_owner_only') || logical_value($config, 'not_owner_only');
         $this->allow_signed = logical_value($config, 'allow_signed');
@@ -287,7 +293,9 @@ class Vk2rss
 
                 $new_item->addElement('title', $this->getTitle($description));
                 $new_item->addElement("comments", "https://vk.com/wall{$post->owner_id}_{$post->id}");
-                $new_item->addElement("slash:comments", $post->comments->count);
+                if (!$this->disable_comments_amount) {
+                    $new_item->addElement("slash:comments", $post->comments->count);
+                }
                 if (isset($post->signer_id) && isset($profiles[$post->signer_id])) { # the 2nd owing to VK API bug
                     $profile = $profiles[$post->signer_id];
                     $new_item->addElement('author', $profile->first_name . ' ' . $profile->last_name);

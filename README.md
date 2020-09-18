@@ -147,6 +147,10 @@ are required, another parameters are optional.
   that RSS item descriptions must be without HTML formatting.
 
   *By default* HTML formatting is applied for links and images.
+* <a name="eng-comments-counter"></a> `disable_comments_amount` passing (including absent value) indicates that RSS item 
+  must be without amount of comments (`<splash:comments>`).
+  
+  *By default* feed item contains number of comments.
 * <a name="eng-owning"></a> `owner_only` passing (including absent value) indicates that RSS must
   contain only posts that's
   * published by community in the case of community wall;
@@ -274,6 +278,12 @@ so URL-encoding can be required for the direct call:
   then set timezone in php configuration (`date.timezone` parameter) or
   add line like `date_default_timezone_set('UTC');` to the start
   of the `index.php` script (before `require_once` statement).
+* If your RSS aggregator marks post as new/updated when number of its comments is changed
+  then you can disable comments counter for each RSS item using GET-parameter `disable_comments_amount`:
+  
+  ```index.php?id=-1&disable_comments_amount```
+  or
+  ```index.php?id=-1&disable_comments_amount=1```
 
 
 ---
@@ -450,6 +460,10 @@ so URL-encoding can be required for the direct call:
 
   *По умолчанию* (отсутствие `disable_html`) описание может включать
   HTML-теги для создания гиперссылок и вставки изображений.
+* <a name="rus-comments-counter"></a> `disable_comments_amount` — если передан (можно без значения),
+  то в RSS-ленте не будет счетчика комментариев у каждой записи (`<splash:comments>`).
+
+  *По умолчанию* у каждой записи указано текущее количество комментариев.
 * <a name="rus-owning"></a> `owner_only` — если передан (можно без значения),
   то в RSS-ленту выводятся лишь те записи, которые
    * в случае стены сообщества опубликованы от имени сообщества;
@@ -594,3 +608,11 @@ GET-параметры может потребоваться URL-кодиров�
   либо добавить в начале скрипта `index.php` (перед `require_once`) строку,
   подобную `date_default_timezone_set('UTC');`,
   устанавливающую часовую зону `UTC` для скрипта.
+* Если при изменении количества комментариев к записи в вашем агрегаторе RSS-лент
+  запись помечается/ранжируется как новая/обновленная, то для такого случая
+  есть возможность отключить счетчик комментариев,
+  добавив GET-параметр `disable_comments_amount`:
+  
+  ```index.php?id=-1&disable_comments_amount```
+  или
+  ```index.php?id=-1&disable_comments_amount=1```
