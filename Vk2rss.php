@@ -570,7 +570,8 @@ class Vk2rss
 
         if (isset($post->copy_history)) {
             foreach ($post->copy_history as $repost) {
-                $author_id = isset($repost->signer_id) ? $repost->signer_id : $repost->owner_id;
+                $author_id = isset($repost->signer_id) && isset($profiles[$repost->signer_id])
+                    ? $repost->signer_id : $repost->owner_id;
                 if ($author_id < 0) {
                     $author_name = $groups[abs($author_id)]->name;
                     $author_link = 'https://vk.com/' . $groups[abs($author_id)]->screen_name;
