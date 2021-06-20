@@ -523,6 +523,8 @@ class Vk2rss
                     case 'video': {
                         if (isset($attachment->video->restriction)) {
                             $video_text = $attachment->video->restriction->text;
+                        } elseif (!empty($attachment->video->content_restricted)) {
+                            $video_text = $attachment->video->content_restricted_message;
                         } else {
                             $video_text = $attachment->video->description;
                         }
