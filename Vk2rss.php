@@ -56,6 +56,30 @@ class Vk2rss
      */
     const GLOBAL_SEARCH_FEED_TITLE_PREFIX = "Результаты поиска по запросу ";
     /**
+     * Video title
+     */
+    const VIDEO_TITLE_PREFIX = "Видеозапись";
+    /**
+     * Audio record title
+     */
+    const AUDIO_TITLE_PREFIX = "Аудиозапись";
+    /**
+     * Image title
+     */
+    const IMAGE_TITLE_PREFIX = "Изображение";
+    /**
+     * Album title
+     */
+    const ALBUM_TITLE_PREFIX = "Альбом";
+    /**
+     * Non-image file title
+     */
+    const FILE_TITLE_PREFIX = "Файл";
+    /**
+     * Title of repost (in the prepositional case) that's written by community
+     */
+    const COMMUNITY_REPOST_TITLE_ABL = "в сообществе";
+    /**
      * Maximum title length in symbols
      */
     const MAX_TITLE_LENGTH = 80;
@@ -440,9 +464,11 @@ class Vk2rss
                         $album_url = "https://vk.com/album" . $attachment->album->owner_id . "_" . $attachment->album->id;
                         array_push($description, $this->attachment_delimiter);
                         if ($this->disable_html) {
-                            array_push($description, "Альбом «" . $album_title . "»: " . $album_url);
+                            array_push($description,
+                                       self::ALBUM_TITLE_PREFIX . " «" . $album_title . "»: " . $album_url);
                         } else {
-                            array_push($description, "<a href='" . $album_url . "'>Альбом «" . $album_title . "»</a>" );
+                            array_push($description,
+                                       "<a href='{$album_url}'>" . self::ALBUM_TITLE_PREFIX . " «" . $album_title . "»</a>" );
                         }
                         $album_description = $attachment->album->description;
                         if (!$this->disable_html) {
@@ -460,7 +486,7 @@ class Vk2rss
                         break;
                     }
                     case 'audio': {
-                        $title = "Аудиозапись {$attachment->audio->artist} — «{$attachment->audio->title}»";
+                        $title = self::AUDIO_TITLE_PREFIX . " {$attachment->audio->artist} — «{$attachment->audio->title}»";
                         array_push($description, $title);
                         break;
                     }
@@ -487,18 +513,18 @@ class Vk2rss
                                 }
                             }
                             if ($this->disable_html) {
-                                array_push($description, "Изображение «{$attachment->doc->title}»: {$photo_url} ({$url})");
+                                array_push($description, self::IMAGE_TITLE_PREFIX . " «{$attachment->doc->title}»: {$photo_url} ({$url})");
                             } else {
                                 array_push($description,
                                            $this->attachment_delimiter,
-                                           "<a href='{$url}'>Изображение «{$attachment->doc->title}»</a>:",
+                                           "<a href='{$url}'>" . self::IMAGE_TITLE_PREFIX . " «{$attachment->doc->title}»</a>:",
                                            "<a href='{$photo_url}'><img src='{$preview_url}'/></a>");
                             }
                         } else {
                             if ($this->disable_html) {
-                                array_push($description, "Файл «{$attachment->doc->title}»: {$url}");
+                                array_push($description, self::FILE_TITLE_PREFIX . " «{$attachment->doc->title}»: {$url}");
                             } else {
-                                array_push($description, "<a href='{$url}'>Файл «{$attachment->doc->title}»</a>");
+                                array_push($description, "<a href='{$url}'>" . self::FILE_TITLE_PREFIX . " «{$attachment->doc->title}»</a>");
                             }
                         }
                         break;
@@ -536,9 +562,9 @@ class Vk2rss
                         $video_description = preg_match(self::EMPTY_STRING_PATTERN, $video_text) === 1 ?
                             array() : preg_split($par_split_regex, $video_text);
                         if (empty($attachment->video->title)) {
-                            $content = array("Видеозапись:");
+                            $content = array(self::VIDEO_TITLE_PREFIX . ":");
                         } else {
-                            $content = array("Видеозапись «{$attachment->video->title}»:");
+                            $content = array(self::VIDEO_TITLE_PREFIX . " «{$attachment->video->title}»:");
                         }
                         if ($video_description) {
                             array_unshift($content, $this->attachment_delimiter);
@@ -605,9 +631,9 @@ class Vk2rss
                     $repost_owner = $groups[abs($repost->owner_id)]->name;
                     $repost_owner_url = "https://vk.com/{$groups[abs($repost->owner_id)]->screen_name}";
                     if ($this->disable_html) {
-                        $repost_place = " в сообществе $repost_owner ($repost_owner_url)";
+                        $repost_place = " " .self::COMMUNITY_REPOST_TITLE_ABL . " $repost_owner ($repost_owner_url)";
                     } else {
-                        $repost_place = " в сообществе <a href='$repost_owner_url'>$repost_owner</a>";
+                        $repost_place = " " . self::COMMUNITY_REPOST_TITLE_ABL . " <a href='$repost_owner_url'>$repost_owner</a>";
                     }
                     $author .= $repost_place;
                     $author_gen .= $repost_place;
