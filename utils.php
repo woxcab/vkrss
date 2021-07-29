@@ -233,6 +233,8 @@ class ConnectionWrapper
      */
     protected $lastUrl = null;
 
+    protected $nRequests = 0;
+
     /**
      * ConnectionWrapper constructor.
      *
@@ -352,8 +354,12 @@ class ConnectionWrapper
             $request_url = $url;
         }
         $this->lastUrl = $request_url;
+        if ($this->nRequests && $this->nRequests % 2 == 0) {
+            usleep(1100000);
+        }
         switch ($this->downloader) {
             case self::BUILTIN_DOWNLOADER:
+                $this->nRequests += 1;
                 $body = @file_get_contents($request_url, false, $this->context);
                 $response_code = isset($http_response_header) ? (int)substr($http_response_header[0], 9, 3) : null;
                 if (empty($body)) {
@@ -367,6 +373,7 @@ class ConnectionWrapper
                 }
                 break;
             case self::CURL_DOWNLOADER:
+                $this->nRequests += 1;
                 curl_setopt($this->curlHandler, CURLOPT_URL, $request_url);
                 $response = curl_exec($this->curlHandler);
                 if (empty($response)) {
