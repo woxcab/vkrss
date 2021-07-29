@@ -168,6 +168,16 @@ class Vk2rss
     protected $delimiter_regex;
 
     /**
+     * @var bool   whether the access token has video permission and video embedding is enabled
+     */
+    protected $allow_embedded_video;
+
+    /**
+    * @var ConnectionWrapper
+    */
+    protected $connector;
+
+    /**
      * Vk2rss constructor.
      * @param array $config    Parameters from the set: id, access_token,
      *                           count, include, exclude, disable_html, owner_only, non_owner_only,
@@ -217,6 +227,7 @@ class Vk2rss
         $this->non_owner_only = logical_value($config, 'non_owner_only') || logical_value($config, 'not_owner_only');
         $this->allow_signed = logical_value($config, 'allow_signed');
         $this->skip_ads =  logical_value($config, 'skip_ads');
+        $this->allow_embedded_video =  logical_value($config, 'allow_embedded_video');
         $this->repost_delimiter = isset($config['repost_delimiter'])
             ? $config['repost_delimiter']
             : ($this->disable_html ? "______________________" : "<hr><hr>");
@@ -237,6 +248,8 @@ class Vk2rss
                 throw new Exception("Invalid proxy parameters: " . $exc->getMessage(), 400);
             }
         }
+
+        $this->connector = new ConnectionWrapper($this->proxy);
     }
 
     /**
@@ -253,8 +266,6 @@ class Vk2rss
             throw new Exception("Cannot set encoding UTF-8 for multibyte strings", 500);
         }
 
-        $connector = new ConnectionWrapper($this->proxy);
-
         $feed = new FeedWriter(RSS2);
         $id = $this->domain ? $this->domain :
             ($this->owner_id > 0 ? 'id' . $this->owner_id : 'club' . abs($this->owner_id));
@@ -264,20 +275,18 @@ class Vk2rss
         $feed->setChannelElement('language', 'ru-ru');
         $feed->setChannelElement('pubDate', date(DATE_RSS, time()));
 
-
         $profiles = array();
         $groups = array();
         $next_from = null;
         $offset_step = empty($this->global_search) ? 100 : 200;
         for ($offset = 0; $offset < $this->count; $offset += $offset_step) {
-            sleep(1);
             if (empty($this->global_search)) {
-                $wall_response = $this->getContent($connector, "wall.get", $offset);
+                $wall_response = $this->getContent("wall.get", $offset);
             } else {
-                $wall_response = $this->getContent($connector, "newsfeed.search", $next_from);
+                $wall_response = $this->getContent("newsfeed.search", $next_from);
             }
             if (property_exists($wall_response, 'error')) {
-                throw new APIError($wall_response, $connector->getLastUrl());
+                throw new APIError($wall_response, $this->connector->getLastUrl());
             }
 
             if (empty($wall_response->response->items)) {
@@ -569,14 +578,46 @@ class Vk2rss
                         if ($video_description) {
                             array_unshift($content, $this->attachment_delimiter);
                         }
+
+                        $video_url = "https://vk.com/video{$attachment->video->owner_id}_{$attachment->video->id}";
+                        if ($this->allow_embedded_video) {
+                            $video_id = "{$attachment->video->owner_id}_{$attachment->video->id}";
+                            if (!empty($attachment->video->access_key)) {
+                                $video_id .= "_{$attachment->video->access_key}";
+                            }
+                            $video_response = $this->getContent("video.get", null, array("videos" => $video_id));
+
+                            if (property_exists($video_response, 'error')) {
+                                $error_code = $video_response->error->error_code;
+                                if ($error_code == 204 || $error_code == 15) {
+                                    $this->allow_embedded_video = false;
+                                } else {
+                                    throw new APIError($video_response, $this->connector->getLastUrl());
+                                }
+                            } else {
+                                $video_info = $video_response->response->items;
+                                if ($video_info) {
+                                    $video_info = $video_info[0];
+                                }
+                                if (property_exists($video_info, 'player')) {
+                                    $video_url = $video_info->player;
+                                }
+                            }
+                        }
+
                         if ($this->disable_html) {
-                            array_push($content, "https://vk.com/video{$attachment->video->owner_id}_{$attachment->video->id}");
+                            array_push($content, $video_url);
                         } else {
                             $preview_sizes = array_values(preg_grep('/^photo_/u', array_keys(get_object_vars($attachment->video))));
                             natsort($preview_sizes);
                             $preview_sizes = array_values($preview_sizes);
                             $preview_size = isset($preview_sizes[2]) ? $preview_sizes[2] : end($preview_sizes);
-                            array_push($content, "<a href='https://vk.com/video{$attachment->video->owner_id}_{$attachment->video->id}'><img src='{$attachment->video->{$preview_size}}'/></a>");
+                            if ($this->allow_embedded_video) {
+                                array_push($content, "<iframe src='${video_url}'>${video_url}</iframe>");
+
+                            } else {
+                                array_push($content, "<a href='${video_url}'><img src='{$attachment->video->{$preview_size}}'/></a>");
+                            }
                         }
                         $description = array_merge($description, $content, $video_description);
                         break;
@@ -654,16 +695,16 @@ class Vk2rss
     /**
      * Get posts of wall
      *
-     * @param ConnectionWrapper $connector
      * @param string $api_method   API method name
      * @param int $offset   offset for wall.get
+     * @param array $params   additional key-value request parameters
      * @return mixed   Json VK response in appropriate PHP type
      * @throws Exception   If unsupported API method name is passed or data retrieving is failed
      */
-    protected function getContent($connector, $api_method, $offset = null)
+    protected function getContent($api_method, $offset = null,
+                                  $params = array('extended'=> '1', 'fields' => 'first_name_ins,last_name_ins,first_name_gen,last_name_gen,screen_name'))
     {
-        $url = self::API_BASE_URL . $api_method
-            . '?v=5.54&extended=1&fields=first_name_ins,last_name_ins,first_name_gen,last_name_gen,screen_name';
+        $url = self::API_BASE_URL . $api_method . '?v=5.54';
         if (isset($this->access_token)) {
             $url .= "&access_token={$this->access_token}";
         }
@@ -686,23 +727,34 @@ class Vk2rss
                     $url .= "&start_from=${offset}";
                 }
                 break;
+            case "video.get":
+                $default_count = 1;
+                if (!empty($offset)) {
+                    $url .= "&offset=${offset}";
+                }
+                break;
             default:
                 throw new Exception("Passed unsupported VK API method name '${api_method}'", 400);
         }
+        foreach ($params as $key => $value) {
+            $url .= "&${key}=${value}";
+        }
+
+        $total_count = ($api_method === "video.get") ? 1 : $this->count;
         if (!empty($offset)) {
-            $count = min($this->count - $offset, $default_count);
+            $count = min($total_count - $offset, $default_count);
         } else {
-            $count = min($this->count, $default_count);
+            $count = min($total_count, $default_count);
         }
         $url .= "&count={$count}";
 
-        $connector->openConnection();
+        $this->connector->openConnection();
         $content = null;
         try {
-            $content = $connector->getContent($url, null, true);
-            $connector->closeConnection();
+            $content = $this->connector->getContent($url, null, true);
+            $this->connector->closeConnection();
         } catch (Exception $exc) {
-            $connector->closeConnection();
+            $this->connector->closeConnection();
             throw new Exception("Failed to get content of URL ${url}: " . $exc->getMessage(), $exc->getCode());
         }
         return json_decode($content);

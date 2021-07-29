@@ -28,6 +28,7 @@
 * Each feed item has author name (post signer/publisher or source post
   signer/publisher if wall post is the repost).
 * Customizable [repost delimiter](#eng-repost-delimiter) with substitutions.
+* [Video embedding](#eng-videos) as iframe in the default HTML mode.
 
 
 ## Requirements
@@ -79,7 +80,7 @@ are required, another parameters are optional.
     [here](https://vk.com/editapp?act=create), app can be off)
 
     Service token allows to fetch only opened for everyone walls.
-  * or [user access token with offline permissions](#eng-user-access-token)
+  * or [user access token with `offline` and optionally `video` permissions](#eng-user-access-token)
 
     If you uses `id` parameter then user access token allows 
     to fetch both opened and closed walls that're opened for this user.
@@ -189,6 +190,17 @@ are required, another parameters are optional.
 
   **Note**: Some wall posts that're marked as ad on the website,
   VK API doesn't mark as ad, therefore some ad posts can be in the RSS feed.
+* <a name="eng-videos"></a> `allow_embedded_video` allows or disallows
+  video player embedding (as iframe) into the posts' description.
+
+  *By default* [absent parameter] it is disabled.
+
+  When it's enabled, script tries to get video player link
+  but if the `access_token` does not have the `video` permission
+  then this parameter turn into `false` forcibly.
+
+  If script can get video player link then videos are playable in the HTML mode,
+   otherwise videos are displayed as either clickable image preview (HTML is enabled) or text (HTML is disabled).
 * <a name="eng-proxy"></a> `proxy` is proxy server address. Allowed value formats:
   * `address`,
   * `address:port`,
@@ -214,9 +226,12 @@ preferred getting user access token for the server side access to the walls.
    Created app can be off because it does not matter for the API requests.
 2. Authorize necessary account on vk.com and go to the next URL
 
-   `https://oauth.vk.com/authorize?client_id=APP_ID&display=page&redirect_uri&scope=offline&response_type=code&v=5.54`
+   `https://oauth.vk.com/authorize?client_id=APP_ID&display=page&redirect_uri&scope=offline,video&response_type=code&v=5.54`
 
    where replace `APP_ID` with application ID that's specified in the app settings.
+
+   The permission `video` is only required when [`allow_embedded_video`](#eng-videos) option is required.
+   Therefore if you do not want use this feature then this permission can be omitted.
 
 3. Confirm permissions. Remember the value of GET-parameter `code`
    of the result URL in the browser address bar.
@@ -258,6 +273,7 @@ index.php?id=club1&non_owner_only&allow_signed&access_token=XXXXXXXXX   # feed c
                                                                         # and community posts with signature
 index.php?id=-1&count=100&include=(new|wall|\d+)&access_token=XXXXXXXXX
 index.php?global_search=query&count=300&access_token=XXXXXXXXX # search posts that contains 'query'
+index.php?id=club1&allow_embedded_video&access_token=XXXXXXXXX   # embed playable videos into RSS items' description
 index.php?id=-1&count=30&repost_delimiter=<hr><hr>Written by {author}:&access_token=XXXXXXXXX
 ```
 **Note**: one parameter contains special characters in the last example,
@@ -316,6 +332,7 @@ so URL-encoding can be required for the direct call:
   либо тот, кто подписан или опубликовал исходную запись, если конечная запись является репостом исходной).
 * Возможность задать свой [собственный разделитель](#rus-repost-delimiter) с подстановками
   между родительским и дочерним записями (репосты).
+* [Встраивание видеозаписей](#rus-videos) в описание RSS записей с помощью iframe при по умолчанию включенном HTML режиме.
 
 
 ## Требования
@@ -371,7 +388,7 @@ so URL-encoding can be required for the direct call:
      [по этой ссылке](https://vk.com/editapp?act=create), само приложение может быть выключено).
 
      Сервисный ключ доступа дает возможность получать записи только с открытых для всех стен.
-   * Либо [ключ доступа пользователя с правами оффлайн-доступа](#rus-user-access-token).
+   * Либо [ключ доступа пользователя с правами оффлайн-доступа и опционально видео-доступа](#rus-user-access-token).
 
      При использовании параметра `id` ключ доступа пользователя позволяет 
      получать записи как с открытых, так и закрытых стен 
@@ -508,6 +525,18 @@ so URL-encoding can be required for the direct call:
 
    **Примечание**: API Вконтакте помечает как рекламу не все записи,
    которые помечены на стене на сайте, поэтому некоторые рекламные посты параметр не убирает.
+* <a name="rus-videos"></a> `allow_embedded_video` допускает или нет встраивание видеозаписей в описание RSS записей.
+
+  *По умолчанию* [отсутствующий параметр] отключено.
+
+  Когда включено, скрипт пытается получить ссылку на видеоплеер,
+  но если `access_token` не имеет разрешения `video`,
+  то этот параметр принудительно принимает значение `false`.
+
+  Если скрипту удается получить ссылку на видеоплеер,
+  тогда при включенном HTML форматировании видеозаписи можно проигрывать в читателе RSS,
+  в противном случае видеозаписи отображаются либо в виде кликабельных изображений-превью при включенном HTML форматировании,
+  либо в виде текста при отключенном HTML форматировании.
 * <a name="rus-proxy"></a> `proxy` — адрес прокси-сервера. Допустимые форматы значения этого параметра:
   * `address`,
   * `address:port`,
@@ -537,10 +566,13 @@ so URL-encoding can be required for the direct call:
 
 2. После авторизации под нужным профилем пройти по ссылке:
 
-   `https://oauth.vk.com/authorize?client_id=APP_ID&display=page&redirect_uri&scope=offline&response_type=code&v=5.54`
+   `https://oauth.vk.com/authorize?client_id=APP_ID&display=page&redirect_uri&scope=offline,video&response_type=code&v=5.54`
 
    где вместо `APP_ID` подставить ID созданного приложения — его можно увидеть,
    например, в настройках приложения.
+
+   Разрешение `video` необходимо лишь в случае включения параметра [`allow_embedded_video`](#rus-videos),
+   поэтому если эта функциональность не будет использоваться, то можно его убрать.
 
 3. Подтвердить права. В результате в адресной строке будет GET-параметр `code`.
 
@@ -587,6 +619,7 @@ index.php?id=club1&non_owner_only&allow_signed&access_token=XXXXXXXXX   # выв
                                                                         # у которых есть подпись, и записи от пользователей
 index.php?id=-1&count=100&include=(рекомендуем|приглашаем|\d+)&access_token=XXXXXXXXX
 index.php?global_search=запрос&count=300&access_token=XXXXXXXXX # поиск записей, содержащих слово "запрос"
+index.php?id=club1&allow_embedded_video&access_token=XXXXXXXXX   # встраивает проигрываемые видеозаписи в описание записи
 index.php?id=-1&count=30&repost_delimiter=<hr><hr>{author} пишет:&access_token=XXXXXXXXX
 ```
 **Примечание**: в последнем примере при таком вызове напрямую через
