@@ -556,12 +556,14 @@ class Vk2rss
                         break;
                     }
                     case 'video': {
+                        $restricted = true;
                         if (isset($attachment->video->restriction)) {
                             $video_text = $attachment->video->restriction->text;
                         } elseif (!empty($attachment->video->content_restricted)) {
                             $video_text = $attachment->video->content_restricted_message;
                         } else {
                             $video_text = $attachment->video->description;
+                            $restricted = false;
                         }
                         if (!$this->disable_html) {
                             $video_text = preg_replace(self::TEXTUAL_LINK_PATTERN,
@@ -580,7 +582,7 @@ class Vk2rss
                         }
 
                         $video_url = "https://vk.com/video{$attachment->video->owner_id}_{$attachment->video->id}";
-                        if ($this->allow_embedded_video) {
+                        if ($this->allow_embedded_video && !$restricted) {
                             $video_id = "{$attachment->video->owner_id}_{$attachment->video->id}";
                             if (!empty($attachment->video->access_key)) {
                                 $video_id .= "_{$attachment->video->access_key}";
@@ -612,7 +614,7 @@ class Vk2rss
                             natsort($preview_sizes);
                             $preview_sizes = array_values($preview_sizes);
                             $preview_size = isset($preview_sizes[2]) ? $preview_sizes[2] : end($preview_sizes);
-                            if ($this->allow_embedded_video) {
+                            if ($this->allow_embedded_video && !$restricted) {
                                 array_push($content, "<iframe src='${video_url}'>${video_url}</iframe>");
 
                             } else {
