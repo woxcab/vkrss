@@ -297,6 +297,31 @@ class Vk2rss
                     ? null : $wall_response->response->next_from;
             }
 
+            $videos = array();
+            if ($this->allow_embedded_video) {
+                $this->extractVideos($videos, $wall_response->response->items);
+                foreach (array_chunk($videos, 200) as $videos_chunk) {
+                    $videos_str = join(",", array_map(function($v) { return empty($v->access_key)
+                                                                        ? "{$v->owner_id}_{$v->id}"
+                                                                        : "{$v->owner_id}_{$v->id}_{$v->access_key}"; },
+                                                      $videos_chunk));
+                    $videos_response = $this->getContent("video.get", null, array("videos" => $videos_str));
+                    if (property_exists($videos_response, 'error')) {
+                        $error_code = $videos_response->error->error_code;
+                        if ($error_code == 204 || $error_code == 15) {
+                            $this->allow_embedded_video = false;
+                            break;
+                        } else {
+                            throw new APIError($videos_response, $this->connector->getLastUrl());
+                        }
+                    } else {
+                        foreach ($videos_response->response->items as $video_info) {
+                            $videos["{$video_info->owner_id}_{$video_info->id}"] = $video_info;
+                        }
+                    }
+                }
+            }
+
             foreach ($wall_response->response->profiles as $profile) {
                 if (!isset($profile->screen_name)) {
                     $profile->screen_name = "id{$profile->id}";
@@ -329,7 +354,7 @@ class Vk2rss
                 $new_item->setDate($post->date);
 
                 $description = array();
-                $this->extractDescription($description, $post, $profiles, $groups);
+                $this->extractDescription($description, $videos, $post, $profiles, $groups);
                 if (!empty($description) && preg_match($this->delimiter_regex, $description[0]) === 1) {
                     array_shift($description);
                 }
@@ -420,7 +445,23 @@ class Vk2rss
         mb_internal_encoding($outer_encoding);
     }
 
-    protected function extractDescription(&$description, $post, &$profiles, &$groups)
+    protected function extractVideos(&$videos, &$posts) {
+        foreach ($posts as $post) {
+            if (isset($post->attachments)) {
+                foreach ($post->attachments as $attachment) {
+                    if ($attachment->type === 'video') {
+                        $video = $attachment->video;
+                        $videos["{$video->owner_id}_{$video->id}"] = $video;
+                    }
+                }
+            }
+            if (isset($post->copy_history)) {
+                $this->extractVideos($videos, $post->copy_history);
+            }
+        }
+    }
+
+    protected function extractDescription(&$description, &$videos, $post, &$profiles, &$groups)
     {
         $par_split_regex = '@[\s ]*?(?:<br/?>|\n)+[\s ]*?@u'; # PHP 5.2.X: \s does not contain non-break space
 
@@ -581,43 +622,20 @@ class Vk2rss
                             array_unshift($content, $this->attachment_delimiter);
                         }
 
-                        $video_url = "https://vk.com/video{$attachment->video->owner_id}_{$attachment->video->id}";
-                        if ($this->allow_embedded_video && !$restricted) {
-                            $video_id = "{$attachment->video->owner_id}_{$attachment->video->id}";
-                            if (!empty($attachment->video->access_key)) {
-                                $video_id .= "_{$attachment->video->access_key}";
-                            }
-                            $video_response = $this->getContent("video.get", null, array("videos" => $video_id));
-
-                            if (property_exists($video_response, 'error')) {
-                                $error_code = $video_response->error->error_code;
-                                if ($error_code == 204 || $error_code == 15) {
-                                    $this->allow_embedded_video = false;
-                                } else {
-                                    throw new APIError($video_response, $this->connector->getLastUrl());
-                                }
-                            } else {
-                                $video_info = $video_response->response->items;
-                                if ($video_info) {
-                                    $video_info = $video_info[0];
-                                }
-                                if (property_exists($video_info, 'player')) {
-                                    $video_url = $video_info->player;
-                                }
-                            }
-                        }
+                        $video_id = "{$attachment->video->owner_id}_{$attachment->video->id}";
+                        $playable = !$restricted && !empty($videos[$video_id]) && !empty($videos[$video_id]->player);
+                        $video_url = $playable ? $videos[$video_id]->player : "https://vk.com/video{$video_id}";
 
                         if ($this->disable_html) {
                             array_push($content, $video_url);
                         } else {
-                            $preview_sizes = array_values(preg_grep('/^photo_/u', array_keys(get_object_vars($attachment->video))));
-                            natsort($preview_sizes);
-                            $preview_sizes = array_values($preview_sizes);
-                            $preview_size = isset($preview_sizes[2]) ? $preview_sizes[2] : end($preview_sizes);
-                            if ($this->allow_embedded_video && !$restricted) {
+                            if ($playable) {
                                 array_push($content, "<iframe src='${video_url}'>${video_url}</iframe>");
-
                             } else {
+                                $preview_sizes = array_values(preg_grep('/^photo_/u', array_keys(get_object_vars($attachment->video))));
+                                natsort($preview_sizes);
+                                $preview_sizes = array_values($preview_sizes);
+                                $preview_size = isset($preview_sizes[2]) ? $preview_sizes[2] : end($preview_sizes);
                                 array_push($content, "<a href='${video_url}'><img src='{$attachment->video->{$preview_size}}'/></a>");
                             }
                         }
@@ -686,7 +704,7 @@ class Vk2rss
                 $repost_delimiter = preg_replace('/\{author_ins\}/u', $author_ins, $repost_delimiter);
                 $repost_delimiter = preg_replace('/\{author_gen\}/u', $author_gen, $repost_delimiter);
                 array_push($description, $repost_delimiter);
-                $this->extractDescription($description, $repost, $profiles, $groups);
+                $this->extractDescription($description, $videos, $repost, $profiles, $groups);
                 if (preg_match($this->delimiter_regex, end($description)) === 1) {
                     array_pop($description);
                 }
@@ -730,7 +748,7 @@ class Vk2rss
                 }
                 break;
             case "video.get":
-                $default_count = 1;
+                $default_count = 200;
                 if (!empty($offset)) {
                     $url .= "&offset=${offset}";
                 }
@@ -742,7 +760,7 @@ class Vk2rss
             $url .= "&${key}=${value}";
         }
 
-        $total_count = ($api_method === "video.get") ? 1 : $this->count;
+        $total_count = ($api_method === "video.get") ? 200 : $this->count;
         if (!empty($offset)) {
             $count = min($total_count - $offset, $default_count);
         } else {
