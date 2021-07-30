@@ -28,7 +28,7 @@
 * Each feed item has author name (post signer/publisher or source post
   signer/publisher if wall post is the repost).
 * Customizable [repost delimiter](#eng-repost-delimiter) with substitutions.
-* [Video embedding](#eng-videos) as iframe in the default HTML mode.
+* Optionally [video embedding](#eng-videos) as iframe [disabled by default] in the default HTML mode.
 
 
 ## Requirements
@@ -332,7 +332,7 @@ so URL-encoding can be required for the direct call:
   либо тот, кто подписан или опубликовал исходную запись, если конечная запись является репостом исходной).
 * Возможность задать свой [собственный разделитель](#rus-repost-delimiter) с подстановками
   между родительским и дочерним записями (репосты).
-* [Встраивание видеозаписей](#rus-videos) в описание RSS записей с помощью iframe при по умолчанию включенном HTML режиме.
+* При желании [встраивание видеозаписей](#rus-videos) в описание RSS записей с помощью iframe (по умолчанию отключено) при по умолчанию включенном HTML режиме.
 
 
 ## Требования
