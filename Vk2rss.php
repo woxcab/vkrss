@@ -761,7 +761,7 @@ class Vk2rss
         }
 
         $total_count = ($api_method === "video.get") ? 200 : $this->count;
-        if (!empty($offset)) {
+        if (!empty($offset) && $api_method !== "newsfeed.search") {
             $count = min($total_count - $offset, $default_count);
         } else {
             $count = min($total_count, $default_count);
