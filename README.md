@@ -32,7 +32,7 @@
 
 
 ## Requirements
-* PHP>=5.2.2 (5.3.X, 5.4.X, 5.5.X, 5.6.X, 7.X included)
+* PHP>=5.3 (5.4.X, 5.5.X, 5.6.X, 7.X, 8.X included)
   with installed `mbstring`, `json`, `pcre`, `openssl` bundled extensions.
 * Script prefers the built-in tools for the requests.
   If `allow_url_fopen` parameter is disabled in the PHP configuration
@@ -43,7 +43,7 @@
     **or** `allow_url_fopen` parameter must be enabled in the PHP configuration
     file or interpreter parameters;
   * for SOCKS5 proxy: `cURL`>=7.10 extension must be installed;
-  * for SOCKS4 proxy: PHP>=5.2.10 with `cURL`>=7.10 extension is required;
+  * for SOCKS4 proxy: PHP>=5.3 with `cURL`>=7.10 extension is required;
   * for SOCKS4A proxy: PHP>=5.5.23 or PHP>=5.6.7 (7.X included)
     with `cURL`>=7.18 extension is required.
 
@@ -226,7 +226,7 @@ preferred getting user access token for the server side access to the walls.
    Created app can be off because it does not matter for the API requests.
 2. Authorize necessary account on vk.com and go to the next URL
 
-   `https://oauth.vk.com/authorize?client_id=APP_ID&display=page&redirect_uri&scope=offline,video&response_type=code&v=5.54`
+   `https://oauth.vk.com/authorize?client_id=APP_ID&display=page&redirect_uri&scope=offline,video&response_type=code&v=5.131`
 
    where replace `APP_ID` with application ID that's specified in the app settings.
 
@@ -336,7 +336,7 @@ so URL-encoding can be required for the direct call:
 
 
 ## Требования
-* PHP>=5.2.2 (в т.ч. 5.3.X, 5.4.X, 5.5.X, 5.6.X, 7.X) с установленными
+* PHP>=5.3 (в т.ч. 5.4.X, 5.5.X, 5.6.X, 7.X, 8.X) с установленными
   по умолчанию поставляемыми расширениями `mbstring`, `json`, `pcre`, `openssl`.
 * Скрипт предпочитает использовать встроенные в PHP возможности по отправке запросов.
   Если у PHP отключена встроенная возможность загрузки файлов по URL
@@ -348,7 +348,7 @@ so URL-encoding can be required for the direct call:
      в конфигурационном файле или параметрах интерпретатора PHP
      должен быть включён параметр `allow_url_fopen`,
    * SOCKS5-прокси — необходимо расширение `cURL`>=7.10,
-   * SOCKS4-прокси — необходим PHP>=5.2.10 с расширением `cURL`>=7.10,
+   * SOCKS4-прокси — необходим PHP>=5.3 с расширением `cURL`>=7.10,
    * SOCKS4A-прокси — необходим PHP>=5.5.23 или PHP>=5.6.7 (включая 7.X) с расширением `cURL`>=7.18.
 
 В случае каких-либо проблем вместо RSS-ленты выдается страница с HTTP-статусом,
@@ -566,7 +566,7 @@ so URL-encoding can be required for the direct call:
 
 2. После авторизации под нужным профилем пройти по ссылке:
 
-   `https://oauth.vk.com/authorize?client_id=APP_ID&display=page&redirect_uri&scope=offline,video&response_type=code&v=5.54`
+   `https://oauth.vk.com/authorize?client_id=APP_ID&display=page&redirect_uri&scope=offline,video&response_type=code&v=5.131`
 
    где вместо `APP_ID` подставить ID созданного приложения — его можно увидеть,
    например, в настройках приложения.

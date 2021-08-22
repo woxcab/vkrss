@@ -479,22 +479,18 @@ class Vk2rss
             foreach ($post->attachments as $attachment) {
                 switch ($attachment->type) {
                     case 'photo': {
-                        $photo_sizes = array_values(preg_grep('/^photo_/u',
-                                                              array_keys(get_object_vars($attachment->photo))));
-                        natsort($photo_sizes);
-                        $photo_sizes = array_values($photo_sizes);
+                        list($preview_photo_src, $huge_photo_src) = $this->getPreviewAndOriginal($attachment->photo->sizes);
                         $photo_text = preg_replace('|^Original: https?://\S+\s*|u',
                                                    '',
                                                    $attachment->photo->text);
-
                         if (!$this->disable_html) {
                             $photo_text = preg_replace(self::TEXTUAL_LINK_PATTERN,
                                                        self::TEXTUAL_LINK_REPLACE_PATTERN,
                                                        $photo_text);
                         }
-                        $huge_photo_src = $attachment->photo->{end($photo_sizes)};
-                        $photo = $this->disable_html ? $huge_photo_src
-                            : "<a href='{$huge_photo_src}'><img src='{$attachment->photo->{$photo_sizes[2]}}'/></a>";
+                        $photo = $this->disable_html
+                            ? $huge_photo_src
+                            : "<a href='{$huge_photo_src}'><img src='{$preview_photo_src}'/></a>";
                         if (preg_match(self::EMPTY_STRING_PATTERN, $photo_text) === 0) {
                             $description = array_merge($description,
                                                        array($this->attachment_delimiter),
@@ -506,10 +502,7 @@ class Vk2rss
                         break;
                     }
                     case 'album': {
-                        $thumb_sizes = array_values(preg_grep('/^photo_/u',
-                                                              array_keys(get_object_vars($attachment->album->thumb))));
-                        natsort($thumb_sizes);
-                        $thumb_sizes = array_values($thumb_sizes);
+                        list($preview_thumb_src, $huge_thumb_src) = $this->getPreviewAndOriginal($attachment->album->thumb->sizes);
                         $album_title = $attachment->album->title;
                         $album_url = "https://vk.com/album" . $attachment->album->owner_id . "_" . $attachment->album->id;
                         array_push($description, $this->attachment_delimiter);
@@ -529,9 +522,9 @@ class Vk2rss
                         if (preg_match(self::EMPTY_STRING_PATTERN, $album_description) === 0) {
                             $description = array_merge($description, preg_split($par_split_regex, $album_description));
                         }
-                        $huge_thumb_src = $attachment->album->thumb->{end($thumb_sizes)};
-                        $thumb = $this->disable_html ? $huge_thumb_src
-                            : "<a href='{$huge_thumb_src}'><img src='{$attachment->album->thumb->{$thumb_sizes[2]}}'/></a>";
+                        $thumb = $this->disable_html
+                            ? $huge_thumb_src
+                            : "<a href='{$huge_thumb_src}'><img src='{$preview_thumb_src}'/></a>";
                         array_push($description, $thumb);
                         break;
                     }
@@ -548,27 +541,14 @@ class Vk2rss
                         $url['query'] = http_build_query($params);
                         $url = build_url($url);
                         if (!empty($attachment->doc->preview->photo)) {
-                            $photos = $attachment->doc->preview->photo->sizes;
-                            $preview_url = $photos[min(2, count($photos)-1)]->src;
-                            $photos = array_reverse($photos);
-                            $photo_max_area = 0;
-                            $photo_url = $photos[0]->src;
-                            foreach ($photos as $photo) {
-                                if (isset($photo->width) && isset($photo->height)) {
-                                    $photo_area = intval($photo->width * $photo->height);
-                                    if ($photo_area > $photo_max_area) {
-                                        $photo_max_area = $photo_area;
-                                        $photo_url = $photo->src;
-                                    }
-                                }
-                            }
+                            list($preview_src, $huge_photo_src) = $this->getPreviewAndOriginal($attachment->doc->preview->photo->sizes);
                             if ($this->disable_html) {
-                                array_push($description, self::IMAGE_TITLE_PREFIX . " «{$attachment->doc->title}»: {$photo_url} ({$url})");
+                                array_push($description, self::IMAGE_TITLE_PREFIX . " «{$attachment->doc->title}»: {$huge_photo_src} ({$url})");
                             } else {
                                 array_push($description,
                                            $this->attachment_delimiter,
                                            "<a href='{$url}'>" . self::IMAGE_TITLE_PREFIX . " «{$attachment->doc->title}»</a>:",
-                                           "<a href='{$photo_url}'><img src='{$preview_url}'/></a>");
+                                           "<a href='{$huge_photo_src}'><img src='{$preview_src}'/></a>");
                             }
                         } else {
                             if ($this->disable_html) {
@@ -587,9 +567,17 @@ class Vk2rss
                         } else {
                             $link_text = preg_match(self::EMPTY_STRING_PATTERN, $attachment->link->title) === 0 ?
                                 $attachment->link->title : $attachment->link->url;
-                            array_push($description,
-                                       $this->attachment_delimiter,
-                                       "<a href='{$attachment->link->url}'>{$link_text}</a>");
+                            if (!empty($attachment->link->photo)) {
+                                list($preview_src, $_) = $this->getPreviewAndOriginal($attachment->link->photo->sizes);
+                                array_push($description,
+                                           $this->attachment_delimiter,
+                                           "<a href='{$attachment->link->url}'><img src='{$preview_src}'/></a>",
+                                           "<a href='{$attachment->link->url}'>{$link_text}</a>");
+                            } else {
+                                array_push($description,
+                                           $this->attachment_delimiter,
+                                           "<a href='{$attachment->link->url}'>{$link_text}</a>");
+                            }
                         }
                         if (preg_match(self::EMPTY_STRING_PATTERN, $attachment->link->description) === 0) {
                             array_push($description, $attachment->link->description);
@@ -632,11 +620,8 @@ class Vk2rss
                             if ($playable) {
                                 array_push($content, "<iframe src='${video_url}'>${video_url}</iframe>");
                             } else {
-                                $preview_sizes = array_values(preg_grep('/^photo_/u', array_keys(get_object_vars($attachment->video))));
-                                natsort($preview_sizes);
-                                $preview_sizes = array_values($preview_sizes);
-                                $preview_size = isset($preview_sizes[2]) ? $preview_sizes[2] : end($preview_sizes);
-                                array_push($content, "<a href='${video_url}'><img src='{$attachment->video->{$preview_size}}'/></a>");
+                                list($preview_src, $_) = $this->getPreviewAndOriginal($attachment->video->image);
+                                array_push($content, "<a href='${video_url}'><img src='{$preview_src}'/></a>");
                             }
                         }
                         $description = array_merge($description, $content, $video_description);
@@ -724,7 +709,7 @@ class Vk2rss
     protected function getContent($api_method, $offset = null,
                                   $params = array('extended'=> '1', 'fields' => 'first_name_ins,last_name_ins,first_name_gen,last_name_gen,screen_name'))
     {
-        $url = self::API_BASE_URL . $api_method . '?v=5.54';
+        $url = self::API_BASE_URL . $api_method . '?v=5.131';
         if (isset($this->access_token)) {
             $url .= "&access_token={$this->access_token}";
         }
@@ -870,4 +855,43 @@ class Vk2rss
         return $full_title;
     }
 
+    protected function getPreviewAndOriginal($sizes) {
+        $photos = array();
+        $typable = true;
+        array_walk($sizes, function(&$size_info, $k) use (&$photos, &$typable) {
+            $url = isset($size_info->url) ? $size_info->url : $size_info->src;
+            if (isset($size_info->type)) {
+                $photos[$size_info->type] = $url;
+            } else {
+                $typable = false;
+                $photos[$size_info->width] = $url;
+            }
+        });
+        $huge_photo_src = null;
+        $preview_photo_src = null;
+        if ($typable) {
+            foreach (array('w', 'z', 'y', 'x', 'r', 'q', 'p', 'm', 'o', 's') as $type) {
+                if (array_key_exists($type, $photos)) {
+                    $huge_photo_src = $photos[$type];
+                    break;
+                }
+            }
+            foreach (array('x', 'r', 'q', 'p', 'o', 'm', 's') as $type) {
+                if (array_key_exists($type, $photos)) {
+                    $preview_photo_src = $photos[$type];
+                    break;
+                }
+            }
+        } else {
+            ksort($photos);
+            foreach ($photos as $width => $photo) {
+                if ($width > 800) {
+                    break;
+                }
+                $preview_photo_src = $photo;
+            }
+            $huge_photo_src = end($photos);
+        }
+        return array($preview_photo_src, $huge_photo_src);
+    }
 }
