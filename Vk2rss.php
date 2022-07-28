@@ -399,13 +399,14 @@ class Vk2rss
         }
 
         foreach ($wall_response->response->items as $post) {
-            if ($this->owner_only
-                && ($post->owner_id != $post->from_id
-                    || !is_null($this->allow_signed) && property_exists($post, 'signer_id')
-                    && !$this->allow_signed)
+            if ($post->id == 0
+                || $this->owner_only
+                    && ($post->owner_id != $post->from_id
+                        || !is_null($this->allow_signed) && property_exists($post, 'signer_id')
+                        && !$this->allow_signed)
                 || $this->non_owner_only && $post->owner_id == $post->from_id
-                && (is_null($this->allow_signed) || !property_exists($post, 'signer_id')
-                    || !$this->allow_signed)
+                    && (is_null($this->allow_signed) || !property_exists($post, 'signer_id')
+                        || !$this->allow_signed)
                 || $this->skip_ads && $post->marked_as_ads) {
                 continue;
             }
