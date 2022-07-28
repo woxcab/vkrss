@@ -267,8 +267,7 @@ class Vk2rss
         }
 
         $feed = new FeedWriter(RSS2);
-        $id = $this->domain ? $this->domain :
-            ($this->owner_id > 0 ? 'id' . $this->owner_id : 'club' . abs($this->owner_id));
+        $id = $this->domain ?: ($this->owner_id > 0 ? 'id' . $this->owner_id : 'club' . abs($this->owner_id));
 
         $feed->setLink('https://vk.com/' . $id);
 
@@ -754,21 +753,20 @@ class Vk2rss
         $url .= "&count={$count}";
 
         $this->connector->openConnection();
-        $content = null;
         try {
             $content = $this->connector->getContent($url, null, true);
             $this->connector->closeConnection();
+            return json_decode($content);
         } catch (Exception $exc) {
             $this->connector->closeConnection();
             throw new Exception("Failed to get content of URL ${url}: " . $exc->getMessage(), $exc->getCode());
         }
-        return json_decode($content);
     }
 
     /**
      * Generate title using text of post
      *
-     * @param $raw_description array   post paragraphs
+     * @param array $raw_description   post paragraphs
      * @return string   generated title
      */
     protected function getTitle($raw_description)
