@@ -173,6 +173,11 @@ class Vk2rss
     protected $allow_embedded_video;
 
     /**
+     * @var bool $donut   whether include donut posts to the feed or not
+     */
+    protected $donut;
+
+    /**
     * @var ConnectionWrapper
     */
     protected $connector;
@@ -248,6 +253,9 @@ class Vk2rss
                 throw new Exception("Invalid proxy parameters: " . $exc->getMessage(), 400);
             }
         }
+        if (isset($config['donut'])) {
+            $this->donut = logical_value($config, 'donut');
+        }
 
         $this->connector = new ConnectionWrapper($this->proxy);
     }
@@ -278,141 +286,30 @@ class Vk2rss
         $groups = array();
         $next_from = null;
         $offset_step = empty($this->global_search) ? 100 : 200;
+
+        if (empty($this->global_search) && $this->donut) {
+            for ($offset = 0; $offset < $this->count; $offset += $offset_step) {
+                $wall_response = $this->getContent("wall.get", $offset, true);
+                if (!$this->processWallResponse($feed, $wall_response, $profiles, $groups)) {
+                    break;
+                }
+            }
+        }
+
         for ($offset = 0; $offset < $this->count; $offset += $offset_step) {
             if (empty($this->global_search)) {
                 $wall_response = $this->getContent("wall.get", $offset);
             } else {
                 $wall_response = $this->getContent("newsfeed.search", $next_from);
             }
-            if (property_exists($wall_response, 'error')) {
-                throw new APIError($wall_response, $this->connector->getLastUrl());
-            }
-
-            if (empty($wall_response->response->items)) {
-                break;
-            }
             if (!empty($this->global_search)) {
                 $next_from = empty($wall_response->response->next_from)
                     ? null : $wall_response->response->next_from;
             }
-
-            $videos = array();
-            if ($this->allow_embedded_video) {
-                $this->extractVideos($videos, $wall_response->response->items);
-                foreach (array_chunk($videos, 200) as $videos_chunk) {
-                    $videos_str = join(",", array_map(function($v) { return empty($v->access_key)
-                                                                        ? "{$v->owner_id}_{$v->id}"
-                                                                        : "{$v->owner_id}_{$v->id}_{$v->access_key}"; },
-                                                      $videos_chunk));
-                    $videos_response = $this->getContent("video.get", null, array("videos" => $videos_str));
-                    if (property_exists($videos_response, 'error')) {
-                        $error_code = $videos_response->error->error_code;
-                        if ($error_code == 204 || $error_code == 15) {
-                            $this->allow_embedded_video = false;
-                            break;
-                        } else {
-                            throw new APIError($videos_response, $this->connector->getLastUrl());
-                        }
-                    } else {
-                        foreach ($videos_response->response->items as $video_info) {
-                            $videos["{$video_info->owner_id}_{$video_info->id}"] = $video_info;
-                        }
-                    }
-                }
+            if (!$this->processWallResponse($feed, $wall_response, $profiles, $groups)) {
+                break;
             }
 
-            foreach ($wall_response->response->profiles as $profile) {
-                if (!isset($profile->screen_name)) {
-                    $profile->screen_name = "id{$profile->id}";
-                }
-                $profiles[$profile->screen_name] = $profile;
-                $profiles[$profile->id] = $profile;
-            }
-            foreach ($wall_response->response->groups as $group) {
-                if (!isset($group->screen_name)) {
-                    $group->screen_name = "club{$group->id}";
-                }
-                $groups[$group->screen_name] = $group;
-                $groups[$group->id] = $group;
-            }
-
-            foreach ($wall_response->response->items as $post) {
-                if ($this->owner_only
-                        && ($post->owner_id != $post->from_id
-                            || !is_null($this->allow_signed) && property_exists($post, 'signer_id')
-                                && !$this->allow_signed)
-                    || $this->non_owner_only && $post->owner_id == $post->from_id
-                            && (is_null($this->allow_signed) || !property_exists($post, 'signer_id')
-                                || !$this->allow_signed)
-                    || $this->skip_ads && $post->marked_as_ads) {
-                    continue;
-                }
-                $new_item = $feed->createNewItem();
-                $new_item->setLink("https://vk.com/wall{$post->owner_id}_{$post->id}");
-                $new_item->addElement('guid', "https://vk.com/wall{$post->owner_id}_{$post->id}");
-                $new_item->setDate($post->date);
-
-                $description = array();
-                $this->extractDescription($description, $videos, $post, $profiles, $groups);
-                if (!empty($description) && preg_match($this->delimiter_regex, $description[0]) === 1) {
-                    array_shift($description);
-                }
-
-                foreach ($description as &$paragraph) {
-                    // process internal short vk links like [id123|Name]
-                    if ($this->disable_html) {
-                        $paragraph = preg_replace('/\[([a-zA-Z0-9_]+)\|([^\]]+)\]/u', '$2 (https://vk.com/$1)', $paragraph);
-                    } else {
-                        $paragraph = preg_replace('/\[([a-zA-Z0-9_]+)\|([^\]]+)\]/u', '<a href="https://vk.com/$1">$2</a>', $paragraph);
-                    }
-                }
-
-                $imploded_description = implode($this->disable_html ? PHP_EOL : '<br/>', $description);
-                $new_item->setDescription($imploded_description);
-
-                if (isset($this->include) && preg_match('/' . $this->include . '/iu', $imploded_description) !== 1) {
-                    continue;
-                }
-                if (isset($this->exclude) && preg_match('/' . $this->exclude . '/iu', $imploded_description) !== 0) {
-                    continue;
-                }
-
-                $new_item->addElement('title', $this->getTitle($description));
-                $new_item->addElement("comments", "https://vk.com/wall{$post->owner_id}_{$post->id}");
-                if (!$this->disable_comments_amount) {
-                    $new_item->addElement("slash:comments", $post->comments->count);
-                }
-                if (isset($post->signer_id) && isset($profiles[$post->signer_id])) { # the 2nd owing to VK API bug
-                    $profile = $profiles[$post->signer_id];
-                    $new_item->addElement('author', $profile->first_name . ' ' . $profile->last_name);
-                } else {
-                    $base_post = isset($post->copy_history) ? end($post->copy_history) : $post;
-                    if (isset($base_post->signer_id) && isset($profiles[$base_post->signer_id])) { # the 2nd owing to VK API bug
-                        $profile = $profiles[$base_post->signer_id];
-                        $new_item->addElement('author', $profile->first_name . ' ' . $profile->last_name);
-                    } elseif ($base_post->from_id > 0) {
-                        $profile = $profiles[$base_post->from_id];
-                        $new_item->addElement('author', $profile->first_name . ' ' . $profile->last_name);
-                    } elseif ($base_post->from_id < 0) {
-                        $group = $groups[abs($base_post->from_id)];
-                        $new_item->addElement('author', $group->name);
-                    } elseif ($base_post->owner_id > 0) {
-                        $profile = $profiles[$base_post->owner_id];
-                        $new_item->addElement('author', $profile->first_name . ' ' . $profile->last_name);
-                    } elseif ($base_post->owner_id < 0) {
-                        $group = $groups[abs($base_post->owner_id)];
-                        $new_item->addElement('author', $group->name);
-                    }
-                }
-
-                preg_match_all('/' . self::HASH_TAG_PATTERN . '/u', implode(' ', $description), $hash_tags);
-
-                foreach ($hash_tags[1] as $hash_tag) {
-                    $new_item->addElement('category', $hash_tag);
-                }
-
-                $feed->addItem($new_item);
-            }
             if (!empty($this->global_search) && is_null($next_from)) {
                 break;
             }
@@ -442,6 +339,143 @@ class Vk2rss
 
         $feed->generateFeed();
         mb_internal_encoding($outer_encoding);
+    }
+
+    /**
+     * @param FeedWriter $feed
+     * @param $wall_response
+     * @param array $profiles
+     * @param array $groups
+     *
+     * @return bool   Whether response contains at least one item or not
+     * @throws \APIError
+     */
+    protected function processWallResponse($feed, $wall_response, &$profiles, &$groups) {
+        if (property_exists($wall_response, 'error')) {
+            throw new APIError($wall_response, $this->connector->getLastUrl());
+        }
+        if (empty($wall_response->response->items)) {
+            return false;
+        }
+
+        $videos = array();
+        if ($this->allow_embedded_video) {
+            $this->extractVideos($videos, $wall_response->response->items);
+            foreach (array_chunk($videos, 200) as $videos_chunk) {
+                $videos_str = join(",", array_map(function($v) { return empty($v->access_key)
+                    ? "{$v->owner_id}_{$v->id}"
+                    : "{$v->owner_id}_{$v->id}_{$v->access_key}"; },
+                    $videos_chunk));
+                $videos_response = $this->getContent("video.get", null, false, array("videos" => $videos_str));
+                if (property_exists($videos_response, 'error')) {
+                    $error_code = $videos_response->error->error_code;
+                    if ($error_code == 204 || $error_code == 15) {
+                        $this->allow_embedded_video = false;
+                        break;
+                    } else {
+                        throw new APIError($videos_response, $this->connector->getLastUrl());
+                    }
+                } else {
+                    foreach ($videos_response->response->items as $video_info) {
+                        $videos["{$video_info->owner_id}_{$video_info->id}"] = $video_info;
+                    }
+                }
+            }
+        }
+
+        foreach ($wall_response->response->profiles as $profile) {
+            if (!isset($profile->screen_name)) {
+                $profile->screen_name = "id{$profile->id}";
+            }
+            $profiles[$profile->screen_name] = $profile;
+            $profiles[$profile->id] = $profile;
+        }
+        foreach ($wall_response->response->groups as $group) {
+            if (!isset($group->screen_name)) {
+                $group->screen_name = "club{$group->id}";
+            }
+            $groups[$group->screen_name] = $group;
+            $groups[$group->id] = $group;
+        }
+
+        foreach ($wall_response->response->items as $post) {
+            if ($this->owner_only
+                && ($post->owner_id != $post->from_id
+                    || !is_null($this->allow_signed) && property_exists($post, 'signer_id')
+                    && !$this->allow_signed)
+                || $this->non_owner_only && $post->owner_id == $post->from_id
+                && (is_null($this->allow_signed) || !property_exists($post, 'signer_id')
+                    || !$this->allow_signed)
+                || $this->skip_ads && $post->marked_as_ads) {
+                continue;
+            }
+            $new_item = $feed->createNewItem();
+            $new_item->setLink("https://vk.com/wall{$post->owner_id}_{$post->id}");
+            $new_item->addElement('guid', "https://vk.com/wall{$post->owner_id}_{$post->id}");
+            $new_item->setDate($post->date);
+
+            $description = array();
+            $this->extractDescription($description, $videos, $post, $profiles, $groups);
+            if (!empty($description) && preg_match($this->delimiter_regex, $description[0]) === 1) {
+                array_shift($description);
+            }
+
+            foreach ($description as &$paragraph) {
+                // process internal short vk links like [id123|Name]
+                if ($this->disable_html) {
+                    $paragraph = preg_replace('/\[([a-zA-Z0-9_]+)\|([^\]]+)\]/u', '$2 (https://vk.com/$1)', $paragraph);
+                } else {
+                    $paragraph = preg_replace('/\[([a-zA-Z0-9_]+)\|([^\]]+)\]/u', '<a href="https://vk.com/$1">$2</a>', $paragraph);
+                }
+            }
+
+            $imploded_description = implode($this->disable_html ? PHP_EOL : '<br/>', $description);
+            $new_item->setDescription($imploded_description);
+
+            if (isset($this->include) && preg_match('/' . $this->include . '/iu', $imploded_description) !== 1) {
+                continue;
+            }
+            if (isset($this->exclude) && preg_match('/' . $this->exclude . '/iu', $imploded_description) !== 0) {
+                continue;
+            }
+
+            $new_item->addElement('title', $this->getTitle($description));
+            $new_item->addElement("comments", "https://vk.com/wall{$post->owner_id}_{$post->id}");
+            if (!$this->disable_comments_amount) {
+                $new_item->addElement("slash:comments", $post->comments->count);
+            }
+            if (isset($post->signer_id) && isset($profiles[$post->signer_id])) { # the 2nd owing to VK API bug
+                $profile = $profiles[$post->signer_id];
+                $new_item->addElement('author', $profile->first_name . ' ' . $profile->last_name);
+            } else {
+                $base_post = isset($post->copy_history) ? end($post->copy_history) : $post;
+                if (isset($base_post->signer_id) && isset($profiles[$base_post->signer_id])) { # the 2nd owing to VK API bug
+                    $profile = $profiles[$base_post->signer_id];
+                    $new_item->addElement('author', $profile->first_name . ' ' . $profile->last_name);
+                } elseif ($base_post->from_id > 0) {
+                    $profile = $profiles[$base_post->from_id];
+                    $new_item->addElement('author', $profile->first_name . ' ' . $profile->last_name);
+                } elseif ($base_post->from_id < 0) {
+                    $group = $groups[abs($base_post->from_id)];
+                    $new_item->addElement('author', $group->name);
+                } elseif ($base_post->owner_id > 0) {
+                    $profile = $profiles[$base_post->owner_id];
+                    $new_item->addElement('author', $profile->first_name . ' ' . $profile->last_name);
+                } elseif ($base_post->owner_id < 0) {
+                    $group = $groups[abs($base_post->owner_id)];
+                    $new_item->addElement('author', $group->name);
+                }
+            }
+
+            preg_match_all('/' . self::HASH_TAG_PATTERN . '/u', implode(' ', $description), $hash_tags);
+
+            foreach ($hash_tags[1] as $hash_tag) {
+                $new_item->addElement('category', $hash_tag);
+            }
+
+            $feed->addItem($new_item);
+        }
+        return true;
     }
 
     protected function extractVideos(&$videos, &$posts) {
@@ -699,13 +733,15 @@ class Vk2rss
     /**
      * Get posts of wall
      *
-     * @param string $api_method   API method name
-     * @param int $offset   offset for wall.get
-     * @param array $params   additional key-value request parameters
+     * @param string $api_method API method name
+     * @param int    $offset     offset for wall.get
+     * @param bool   $donut      whether retrieve donut only posts or others
+     * @param array  $params     additional key-value request parameters
+     *
      * @return mixed   Json VK response in appropriate PHP type
      * @throws Exception   If unsupported API method name is passed or data retrieving is failed
      */
-    protected function getContent($api_method, $offset = null,
+    protected function getContent($api_method, $offset = null, $donut = false,
                                   $params = array('extended'=> '1', 'fields' => 'first_name_ins,last_name_ins,first_name_gen,last_name_gen,screen_name'))
     {
         $url = self::API_BASE_URL . $api_method . '?v=5.131';
@@ -722,6 +758,9 @@ class Vk2rss
                 $default_count = 100;
                 if (!empty($offset)) {
                     $url .= "&offset=${offset}";
+                }
+                if ($donut) {
+                    $url .= "&filter=donut";
                 }
                 break;
             case "newsfeed.search":

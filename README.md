@@ -29,6 +29,7 @@
   signer/publisher if wall post is the repost).
 * Customizable [repost delimiter](#eng-repost-delimiter) with substitutions.
 * Optionally [video embedding](#eng-videos) as iframe [disabled by default] in the default HTML mode.
+* Optionally [VK Donut posts including](#eng-donut) [disabled by default].
 
 
 ## Requirements
@@ -58,7 +59,7 @@ Main `index.php` script accepts the below GET-parameters.
 are required, another parameters are optional. 
 `id` and `global_search` parameters **cannot** be used together.
 
-* [conditionally required] `id` is short name, ID number (community ID is started with `-` sign)
+* <a name="eng-id"></a> [conditionally required] `id` is short name, ID number (community ID is started with `-` sign)
   or full identifier (like idXXXX, clubXXXX, publicXXXX, eventXXXX) of profile or community.
   Only its single wall is processed.
   Examples of a valid values:
@@ -74,7 +75,7 @@ are required, another parameters are optional.
   It uses internal VK algorithms to search posts that're published by wall's **owner**.
   Search results are the same as on [this search page](https://vk.com/search?c[section]=statuses).
   
-* [required] `access_token` is
+* <a name="eng-access-token"></a> [required] `access_token` is
   * either service token that's specified in the app settings
     (you can create your own standalone application
     [here](https://vk.com/editapp?act=create), app can be off)
@@ -103,6 +104,9 @@ are required, another parameters are optional.
   If `global_search` is passed then maximum value of `count` is **1000**,
   API requests number can be no more than **1000 requests per day**, 
   and each request can fetch no more than 200 posts.
+  
+  If [`donut`](#eng-donut) is passed then amount of posts in the result RSS feed can be
+  at most `2*count` (`count` VK Donut posts + `count` regular posts).
   
   Delay between requests is equal to 1 sec in order to satisfy VK API limits
   (no more than 3 requests per second).
@@ -138,6 +142,16 @@ are required, another parameters are optional.
   Additionally substitutions adds links to user/community pages
   that're represented as either HTML hyperlinks on author name or plain text in the brackets
   (if `disable_html` is enabled).
+* <a name="eng-donut"></a> `donut` passing (including absent value) indicates that RSS 
+  contains donut posts (VK Donut subscription) at the beginning, followed by regular posts.
+  Total amount of posts in the RSS feed can be at most [`2*count`](#eng-count) posts
+  (`count` donut posts + `count` regular posts) if they exist.
+  
+  If an **API Error 15** occurs by this parameter usage, it means that:
+  * either user (whose [`access_token`](#eng-access-token) is used) has not subscribed to VK Donut
+    of community with [`id`](#eng-id), 
+  * or community has not enabled VK Donut feature,
+  * or [`id`](#eng-id) belongs to some user instead of community.
 * <a name="eng-regex"></a> `include` is case insensitive regular expression (PCRE notation)
   that must match the post text. Another posts will be skipped.
   Symbol `/` **is not** required at the start and at the end of regular expression.
@@ -275,6 +289,7 @@ index.php?id=-1&count=100&include=(new|wall|\d+)&access_token=XXXXXXXXX
 index.php?global_search=query&count=300&access_token=XXXXXXXXX # search posts that contains 'query'
 index.php?id=club1&allow_embedded_video&access_token=XXXXXXXXX   # embed playable videos into RSS items' description
 index.php?id=-1&count=30&repost_delimiter=<hr><hr>Written by {author}:&access_token=XXXXXXXXX
+index.php?id=pitertransport&donut&access_token=XXXXXXXXX  # RSs feed contains VK Donut posts and regular posts
 ```
 **Note**: one parameter contains special characters in the last example,
 so URL-encoding can be required for the direct call:
@@ -300,7 +315,11 @@ so URL-encoding can be required for the direct call:
   ```index.php?id=-1&disable_comments_amount```
   or
   ```index.php?id=-1&disable_comments_amount=1```
-
+* If an **API Error 15** occurs by [`donut`](#eng-donut) parameter usage, it means that:
+  * either user (whose [`access_token`](#eng-access-token) is used) has not subscribed to VK Donut
+    of community with [`id`](#eng-id),
+  * or community has not enabled VK Donut feature,
+  * or [`id`](#eng-id) belongs to some user instead of community.
 
 ---
 
@@ -333,6 +352,7 @@ so URL-encoding can be required for the direct call:
 * Возможность задать свой [собственный разделитель](#rus-repost-delimiter) с подстановками
   между родительским и дочерним записями (репосты).
 * При желании [встраивание видеозаписей](#rus-videos) в описание RSS записей с помощью iframe (по умолчанию отключено) при по умолчанию включенном HTML режиме.
+* При желании можно [включить записи для донов](#rus-donut) в RSS-ленту (по умолчанию отключено).
 
 
 ## Требования
@@ -363,7 +383,7 @@ so URL-encoding can be required for the direct call:
 обязательна, остальные параметры необязательны. Нельзя одновременно использовать 
 параметры `id` и `global_search`.
 
-* [условно обязательный] `id` — короткое название, ID-номер (в случае сообщества ID начинается со знака `-`)
+* <a name="rus-id"></a> [условно обязательный] `id` — короткое название, ID-номер (в случае сообщества ID начинается со знака `-`)
   или полный идентификатор человека/сообщества (в виде idXXXX, clubXXXX, publicXXXX, eventXXXX), 
   для которого будет строиться RSS-лента.
   Примеры допустимых значений параметра `id`:
@@ -382,7 +402,7 @@ so URL-encoding can be required for the direct call:
   или от имени сообщества. Результаты поиска аналогичны результатам 
   [на этой поисковой странице](https://vk.com/search?c%5Bsection%5D=statuses).
 
-* [обязательный] `access_token` —
+* <a name="rus-access-token"></a> [обязательный] `access_token` —
    * Либо сервисный ключ доступа, который указан в настройках приложения
      (создать собственное standalone-приложение можно
      [по этой ссылке](https://vk.com/editapp?act=create), само приложение может быть выключено).
@@ -415,6 +435,9 @@ so URL-encoding can be required for the direct call:
   позволяет делать не более **5000 запросов в сутки**, а каждый запрос может 
   получить не более 100 записей.
   
+  Если передан параметр [`donut`](#rus-donut), то RSS-лента может содержать до `2*count` записей
+  (максимум `count` записей для донов плюс максимум `count` обычных записей).
+
   Если передан параметр `global_search`, то значение `count` не может быть
   больше **1000**, при этом VK API позволяет делать не более **1000 запросов в сутки**,
   каждый из которых может извлечь не более 200 записей.
@@ -464,6 +487,20 @@ so URL-encoding can be required for the direct call:
    В указанных примерах в результатах подстановки еще подставляются либо HTML-форматированные
    ссылки на пользователя/сообщество, либо эти же же ссылки в виде простого текста
    в случае отключенного HTML-форматирования (параметр `disable_html`).
+* <a name="rus-donut"></a> `donut` — если передан (можно без значения),
+  то в RSS-ленту будут добавлены записи для донов (по подключенной подписке VK Donut).
+  При включении в RSS-ленте в первую очередь выводятся записи для донов, а после них обычные записи.
+  Суммарное количество записей в RSS-ленте может достигать [`2*count`](#rus-count)
+  (`count` записей для донов + `count` обычных записей),
+  если столько записей существует и они не фильтруются другими параметрами скрипта.
+  
+  Если при использовании этого параметра в результате появляется ошибка **API Error 15**, 
+  то это значит, что:
+  * либо у пользователя, чей ключ доступа использован, не оформлена подписка на VK Donut сообщества
+    (стоит удостовериться, что в качестве [`access_token`](#rus-access-token) используется именно ключ доступа пользователя,
+    у которого есть подписка VK Donut на сообщество с верным [`id`](#rus-id));
+  * либо у сообщества отключен VK Donut;
+  * либо RSS-лента генерируется для стены пользователя, а не сообщества.
 * <a name="rus-regex"></a> `include` — регистронезависимое регулярное
   выражение в стиле PCRE, которое должно соответствовать тексту записи.
   Остальные записи будут пропущены.
@@ -621,6 +658,7 @@ index.php?id=-1&count=100&include=(рекомендуем|приглашаем|\
 index.php?global_search=запрос&count=300&access_token=XXXXXXXXX # поиск записей, содержащих слово "запрос"
 index.php?id=club1&allow_embedded_video&access_token=XXXXXXXXX   # встраивает проигрываемые видеозаписи в описание записи
 index.php?id=-1&count=30&repost_delimiter=<hr><hr>{author} пишет:&access_token=XXXXXXXXX
+index.php?id=pitertransport&donut&access_token=XXXXXXXXX  # Помимо обычных записей, в RSS ленту добавляются записи для донов
 ```
 **Примечание**: в последнем примере при таком вызове напрямую через
 GET-параметры может потребоваться URL-кодирование символов:
@@ -649,3 +687,10 @@ GET-параметры может потребоваться URL-кодиров�
   ```index.php?id=-1&disable_comments_amount```
   или
   ```index.php?id=-1&disable_comments_amount=1```
+* Если при использовании параметра [`donut`](#rus-donut) в результате появляется ошибка **API Error 15**,
+  то это значит, что:
+  * либо у пользователя, чей ключ доступа использован, не оформлена подписка на VK Donut сообщества 
+    (стоит удостовериться, что в качестве [`access_token`](#rus-access-token) используется именно ключ доступа пользователя,
+    у которого есть подписка VK Donut на сообщество с верным [`id`](#rus-id));
+  * либо у сообщества отключен VK Donut;
+  * либо RSS-лента генерируется для стены пользователя, а не сообщества.
