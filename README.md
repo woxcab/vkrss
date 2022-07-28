@@ -242,7 +242,7 @@ are required, another parameters are optional.
 preferred getting user access token for the server side access to the walls.
 
 1. Create your own standalone application [here](https://vk.com/editapp?act=create).
-   Created app can be off because it does not matter for the API requests.
+   Created app can be off after token generation because it does not matter for the API requests.
 2. Authorize necessary account on vk.com and go to the next URL
 
    `https://oauth.vk.com/authorize?client_id=APP_ID&display=page&redirect_uri&scope=offline,video&response_type=code&v=5.131`
@@ -608,7 +608,7 @@ so URL-encoding can be required for the direct call:
 Для серверного доступа предпочтительна [такая схема](https://vk.com/dev/authcode_flow_user):
 
 1. Создать собственное standalone-приложение [по этой ссылке](https://vk.com/editapp?act=create).
-   По желанию в настройках приложения можно изменить состояние
+   По желанию после генерации ключей в настройках приложения можно изменить состояние
    на «Приложение отключено» — это никак не помешает генерации RSS-ленты.
 
 2. После авторизации под нужным профилем пройти по ссылке:
