@@ -15,10 +15,10 @@
 * Generating RSS feed for different opened walls based on 
   [global search](#eng-global-search) results.
 * Feeding [arbitrary number](#eng-count) of posts.
-* Posts filtering [by author](#eng-owning): all posts, posts by community/profile owner
+* Posts filtering [by author](#eng-owner-only): all posts, posts by community/profile owner
   only or all posts except posts by community/profile owner.
 * Posts filtering by [signature presence](#eng-sign).
-* Posts filtering by [regular expression](#eng-regex) (PCRE notation)
+* Posts filtering by [regular expression](#eng-include) (PCRE notation)
   matching and/or mismatching.
 * Optionally [ad posts skipping](#eng-ads) [disabled by default].
 * Extracting RSS categories from the post hash tags.
@@ -55,11 +55,14 @@ in the script output and in the server/interpreter logfile.
 ## Parameters
 Main `index.php` script accepts the below GET-parameters.
 
-`id` and `access_token` **OR** `global_search` and `access_token` parameters 
-are required, another parameters are optional. 
-`id` and `global_search` parameters **cannot** be used together.
+[`id`](#eng-id) and [`access_token`](#eng-access-token) 
+**OR** [`global_search`](#eng-global-search) and [`access_token`](#eng-access-token) parameters 
+are required, another parameters are optional.
 
-* <a name="eng-id"></a> [conditionally required] `id` is short name, ID number (community ID is started with `-` sign)
+[`id`](#eng-id) and [`global_search`](#eng-global-search) parameters **cannot** be used together.
+
+* <a name="eng-id"></a> [conditionally required]
+  `id` is short name, ID number (community ID is started with `-` sign)
   or full identifier (like idXXXX, clubXXXX, publicXXXX, eventXXXX) of profile or community.
   Only its single wall is processed.
   Examples of a valid values:
@@ -83,13 +86,13 @@ are required, another parameters are optional.
     Service token allows to fetch only opened for everyone walls.
   * or [user access token with `offline` and optionally `video` permissions](#eng-user-access-token)
 
-    If you uses `id` parameter then user access token allows 
-    to fetch both opened and closed walls that're opened for this user.
+    If you uses [`id`](#eng-id) parameter then user access token allows 
+    to fetch both opened and closed walls that are opened for this user.
 
     Warning: If user terminates all sessions in the security settings of profile
     then him access token becomes invalid; in that case, user must create new access token.
     
-   If you uses `global_search` then service and user access tokens give equivalent results,
+   If you uses [`global_search`](#eng-global-search) then service and user access tokens give equivalent results,
    i.e. only opened walls is processed.
 * <a name="eng-count"></a> `count` is a number of processing posts 
   starting with the latest published post.
@@ -97,29 +100,29 @@ are required, another parameters are optional.
 
   *Default value*: 20.
 
-  If `owner_only`, `non_owner_only`, `include`, `exclude` or `skip_ads`
+  If [`owner_only`](#eng-owner-only), [`non_owner_only`](#eng-non-owner-only),
+  [`include`](#eng-include), [`exclude`](#eng-exclude) or [`skip_ads`](#eng-ads)
   parameters are passed then amount of posts in the result RSS feed can be
   less than `count` because some post can be skipped by these parameters.
-  
-  If `global_search` is passed then maximum value of `count` is **1000**,
-  API requests number can be no more than **1000 requests per day**, 
-  and each request can fetch no more than 200 posts.
-  
+
   If [`donut`](#eng-donut) is passed then amount of posts in the result RSS feed can be
   at most `2*count` (`count` VK Donut posts + `count` regular posts).
-  
-  Delay between requests is equal to 1 sec in order to satisfy VK API limits
-  (no more than 3 requests per second).
-  
-  If `id` is passed then `count` is unlimited, but API requests number can be no more than 
+
+  If [`id`](#eng-id) is passed then `count` is unlimited, but API requests number can be no more than
   **5000 requests per day** and each request can fetch no more than 100 posts.
   
+  If [`global_search`](#eng-global-search) is passed then maximum value of `count` is **1000**,
+  API requests number can be no more than **1000 requests per day**, 
+  and each request can fetch no more than 200 posts.
+    
+  Delay between requests is equal to 1 sec in order to satisfy VK API limits
+  (no more than 3 requests per second).
 * <a name="eng-repost-delimiter"></a> `repost_delimiter` is a string that's placed
   between parent and child posts; in other words, it's a header of a child post
   in the repost.
 
   *Default value* is `<hr><hr>` if HTML formatting is enabled (default behaviour),
-  otherwise `______________________` (`disable_html` parameter).
+  otherwise `______________________` ([`disable_html`](#eng-html) parameter).
 
   This parameter can contain the next special strings that will be substituted in the RSS feed:
   * `{author}` that's replaced with first and last names of child post' author
@@ -141,7 +144,7 @@ are required, another parameters are optional.
 
   Additionally substitutions adds links to user/community pages
   that're represented as either HTML hyperlinks on author name or plain text in the brackets
-  (if `disable_html` is enabled).
+  (if [`disable_html`](#eng-html) is enabled).
 * <a name="eng-donut"></a> `donut` passing (including absent value) indicates that RSS 
   contains donut posts (VK Donut subscription) at the beginning, followed by regular posts.
   Total amount of posts in the RSS feed can be at most [`2*count`](#eng-count) posts
@@ -152,11 +155,13 @@ are required, another parameters are optional.
     of community with [`id`](#eng-id), 
   * or community has not enabled VK Donut feature,
   * or [`id`](#eng-id) belongs to some user instead of community.
-* <a name="eng-regex"></a> `include` is case insensitive regular expression (PCRE notation)
+* <a name="eng-include"></a> `include` is case-insensitive regular expression (PCRE notation)
   that must match the post text. Another posts will be skipped.
+  
   Symbol `/` **is not** required at the start and at the end of regular expression.
-* `exclude` is case insensitive regular expression (PCRE notation)
+* <a name="eng-exclude"></a> `exclude` is case-insensitive regular expression (PCRE notation)
   that must **not** match the post text. Another posts will be skipped.
+  
   Symbol `/` **is not** required at the start and at the end of regular expression.
 * <a name="eng-html"></a> `disable_html` passing (including absent value) indicates
   that RSS item descriptions must be without HTML formatting.
@@ -166,36 +171,36 @@ are required, another parameters are optional.
   must be without amount of comments (`<slash:comments>`).
   
   *By default* feed item contains number of comments.
-* <a name="eng-owning"></a> `owner_only` passing (including absent value) indicates that RSS must
+* <a name="eng-owner-only"></a> `owner_only` passing (including absent value) indicates that RSS must
   contain only posts that's
   * published by community in the case of community wall;
 
-    If `allow_signed` parameter with `false` value is also passed
+    If [`allow_signed`](#eng-sign) parameter with `false` value is also passed
     then posts with signature (that's published by community) will be skipped.
   * published by profile owner in the case of user wall.
 
   *By default* [absent parameter] RSS feed contains all posts that passes another filters.
-* `non_owner_only` or `not_owner_only` passing (including absent value)
+* <a name="eng-non-owner-only"></a> `non_owner_only` or `not_owner_only` passing (including absent value)
   indicates that RSS must contain only posts that's
   * not published by community in the case of community wall, i.e. published by users.
 
-    If `allow_signed` parameter with `true` or absent value is also passed
+    If [`allow_signed`](#eng-sign) parameter with `true` or absent value is also passed
     then posts with signature (that's published by community)
     will be included to the RSS feed.
   * not published by profile owner in the case of user wall, i.e. published by another users.
 
   *By default* [absent parameter] RSS feed contains all posts that passes another filters.
 * <a name="eng-sign"></a> `allow_signed` allows or disallows posts (that's published by community)
-  with signature when `owner_only` or `non_owner_only`/`not_owner_only`
+  with signature when [`owner_only`](#eng-owner-only) or [`non_owner_only`/`not_owner_only`](#eng-non-owner-only)
   parameter is passed.
 
   *By default* [absent parameter] RSS feed contains all posts that passes another filters.
 
   Allowed values: [absent value] (same as `true`), `true`, `false`,
   `0` (same as `false`), `1` (same as `true`). Another values are interpreted as `true`.
-  * If `owner_only` is passed then `allow_signed` with `false` value doesn't include
+  * If [`owner_only`](#eng-owner-only) is passed then `allow_signed` with `false` value doesn't include
     posts with signature to the RSS feed.
-  * If `non_owner_only` or `not_owner_only` is passed
+  * If [`non_owner_only` or `not_owner_only`](#eng-non-owner-only) is passed
     then `allow_signed` with `true` value includes posts
     with signature to the RSS feed.
 * <a name="eng-ads"></a> `skip_ads` passing indicates that all marked as ad posts will be skipped.
@@ -210,7 +215,7 @@ are required, another parameters are optional.
   *By default* [absent parameter] it is disabled.
 
   When it's enabled, script tries to get video player link
-  but if the `access_token` does not have the `video` permission
+  but if the [`access_token`](#eng-user-access-token) does not have the `video` permission
   then this parameter turn into `false` forcibly.
 
   If script can get video player link then videos are playable in the HTML mode,
@@ -310,7 +315,8 @@ so URL-encoding can be required for the direct call:
   add line like `date_default_timezone_set('UTC');` to the start
   of the `index.php` script (before `require_once` statement).
 * If your RSS aggregator marks post as new/updated when number of its comments is changed
-  then you can disable comments counter for each RSS item using GET-parameter `disable_comments_amount`:
+  then you can disable comments counter for each RSS item
+  using GET-parameter [`disable_comments_amount`](#eng-comments-counter):
   
   ```index.php?id=-1&disable_comments_amount```
   or
@@ -335,11 +341,11 @@ so URL-encoding can be required for the direct call:
 * Получение RSS-ленты, содержащей записи с различных открытых стен, 
   которые соответствуют [глобальному поисковому запросу](#rus-global-search).
 * Получение [произвольного количества](#rus-count) записей со стены.
-* Получение записей, [опубликованных](#rus-owning) от кого угодно, от имени
+* Получение записей, [опубликованных](#rus-owner-only) от кого угодно, от имени
   сообщества/владельца страницы или ото всех, кроме сообщества/владельца страницы.
 * Фильтрация записей по наличию или отсутствию [подписи](#rus-sign).
 * Фильтрация записей по соответствию и/или несоответствию
-  [регулярному выражению](#rus-regex) в стиле PCRE.
+  [регулярному выражению](#rus-include) в стиле PCRE.
 * При желании исключение записей в сообществе, помеченных как [реклама](#rus-ads)
   [по умолчанию отключено].
 * Извлечение хеш-тегов в качестве RSS-категорий.
@@ -379,9 +385,11 @@ so URL-encoding can be required for the direct call:
 ## Параметры
 Основной скрипт `index.php` принимает следующие GET-параметры.
 
-Пара параметров `id` и `access_token` **ИЛИ** `global_search` и `access_token` 
-обязательна, остальные параметры необязательны. Нельзя одновременно использовать 
-параметры `id` и `global_search`.
+Пара параметров [`id`](#rus-id) и [`access_token`](#rus-access-token) 
+**ИЛИ** [`global_search`](#rus-global-search) и [`access_token`](#rus-access-token) 
+обязательна, остальные параметры необязательны.
+
+Нельзя одновременно использовать параметры [`id`](#rus-id) и [`global_search`](#rus-global-search).
 
 * <a name="rus-id"></a> [условно обязательный] `id` — короткое название, ID-номер (в случае сообщества ID начинается со знака `-`)
   или полный идентификатор человека/сообщества (в виде idXXXX, clubXXXX, publicXXXX, eventXXXX), 
@@ -410,14 +418,14 @@ so URL-encoding can be required for the direct call:
      Сервисный ключ доступа дает возможность получать записи только с открытых для всех стен.
    * Либо [ключ доступа пользователя с правами оффлайн-доступа и опционально видео-доступа](#rus-user-access-token).
 
-     При использовании параметра `id` ключ доступа пользователя позволяет 
+     При использовании параметра [`id`](#rus-id) ключ доступа пользователя позволяет 
      получать записи как с открытых, так и закрытых стен 
      (но открытых для пользователя, который создал токен).
 
      Предупреждение: если в настройках безопасности пользователя будут завершены все сессии,
      то ключ доступа пользователя станет невалидным — нужно сформировать ключ заново.
     
-   Если используется параметр `global_search`, тогда генерируемые RSS-ленты
+   Если используется параметр [`global_search`](#rus-global-search), тогда генерируемые RSS-ленты
    при использовании сервисного ключа доступа и при использовании ключа 
    доступа пользователя одинаковы, 
    т.е. в любом случае все записи будут лишь с открытых стен.
@@ -426,19 +434,19 @@ so URL-encoding can be required for the direct call:
   начиная с последней опубликованной
   (произвольное количество, включая более 100, *по умолчанию 20*).
   
-  Если дополнительно установлены параметры `owner_only`, `non_owner_only`,
-  `include`, `exclude` или `skip_ads`, то количество выводимых в RSS-ленте
+  Если дополнительно установлены параметры [`owner_only`](#rus-owner-only), [`non_owner_only`](#rus-non-owner-only),
+  [`include`](#rus-include), [`exclude`](#rus-exclude) или [`skip_ads`](#rus-ads), то количество выводимых в RSS-ленте
   записей может быть меньше значения `count` за счет исключения записей,
   которые отсеиваются этими параметрами.
+
+  Если передан параметр [`donut`](#rus-donut), то RSS-лента может содержать до `2*count` записей
+  (максимум `count` записей для донов плюс максимум `count` обычных записей).
   
-  Если передан параметр `id`, то значение `count` неограниченно, но VK API
+  Если передан параметр [`id`](#rus-id), то значение `count` неограниченно, но VK API
   позволяет делать не более **5000 запросов в сутки**, а каждый запрос может 
   получить не более 100 записей.
   
-  Если передан параметр [`donut`](#rus-donut), то RSS-лента может содержать до `2*count` записей
-  (максимум `count` записей для донов плюс максимум `count` обычных записей).
-
-  Если передан параметр `global_search`, то значение `count` не может быть
+  Если передан параметр [`global_search`](#rus-global-search), то значение `count` не может быть
   больше **1000**, при этом VK API позволяет делать не более **1000 запросов в сутки**,
   каждый из которых может извлечь не более 200 записей.
   
@@ -452,7 +460,7 @@ so URL-encoding can be required for the direct call:
 
   *По умолчанию* разделителем служит `<hr><hr>` в случае по умолчанию
   включенного HTML-форматирования и `______________________`
-  в случае отключенного HTML-форматирования (параметр `disable_html`):
+  в случае отключенного HTML-форматирования (параметр [`disable_html`](#rus-html)):
 
   В качестве значения параметра может быть передана любая строка.
   Допустимо использование специальных подстановок:
@@ -486,7 +494,7 @@ so URL-encoding can be required for the direct call:
 
    В указанных примерах в результатах подстановки еще подставляются либо HTML-форматированные
    ссылки на пользователя/сообщество, либо эти же же ссылки в виде простого текста
-   в случае отключенного HTML-форматирования (параметр `disable_html`).
+   в случае отключенного HTML-форматирования (параметр [`disable_html`](#rus-html)).
 * <a name="rus-donut"></a> `donut` — если передан (можно без значения),
   то в RSS-ленту будут добавлены записи для донов (по подключенной подписке VK Donut).
   При включении в RSS-ленте в первую очередь выводятся записи для донов, а после них обычные записи.
@@ -501,13 +509,15 @@ so URL-encoding can be required for the direct call:
     у которого есть подписка VK Donut на сообщество с верным [`id`](#rus-id));
   * либо у сообщества отключен VK Donut;
   * либо RSS-лента генерируется для стены пользователя, а не сообщества.
-* <a name="rus-regex"></a> `include` — регистронезависимое регулярное
+* <a name="rus-include"></a> `include` — регистронезависимое регулярное
   выражение в стиле PCRE, которое должно соответствовать тексту записи.
   Остальные записи будут пропущены.
+  
   В начале и в конце выражения символ `/` **не** нужен.
-* `exclude` — регистронезависимое регулярное выражение в стиле PCRE,
+* <a name="rus-exclude"></a> `exclude` — регистронезависимое регулярное выражение в стиле PCRE,
   которое **не** должно соответствовать тексту записи.
   Остальные записи будут пропущены.
+  
   В начале и в конце выражения символ `/` **не** нужен.
 * <a name="rus-html"></a> `disable_html` — если передан (можно без значения),
   то описание каждой записи не будет содержать никаких HTML тегов.
@@ -518,21 +528,21 @@ so URL-encoding can be required for the direct call:
   то в RSS-ленте не будет счетчика комментариев у каждой записи (`<slash:comments>`).
 
   *По умолчанию* у каждой записи указано текущее количество комментариев.
-* <a name="rus-owning"></a> `owner_only` — если передан (можно без значения),
+* <a name="rus-owner-only"></a> `owner_only` — если передан (можно без значения),
   то в RSS-ленту выводятся лишь те записи, которые
    * в случае стены сообщества опубликованы от имени сообщества;
 
-     если в этом случае дополнительно передан параметр `allow_signed=false`,
+     если в этом случае дополнительно передан параметр [`allow_signed=false`](#rus-sign),
      то не будут выводиться подписанные записи, опубликованные от имени сообщества.
    * в случае стены пользователя опубликованы самим этим пользователем.
 
    *По умолчанию* (отсутствие параметра) выводятся записи ото всех,
    если они не фильтруются другими параметрами.
-* `non_owner_only` или `not_owner_only` — если передан любой из них
+* <a name="rus-non-owner-only"></a> `non_owner_only` или `not_owner_only` — если передан любой из них
   (можно без значения), то в RSS-ленту выводятся лишь те записи, которые
   * в случае стены сообщества опубликованы не от имени сообщества, а пользователями;
 
-    если в этом случае дополнительно передан параметр `allow_signed`
+    если в этом случае дополнительно передан параметр [`allow_signed`](#rus-sign)
     с отсутствующим значением или со значение`true`, то еще будут
     выводиться подписанные записи, опубликованные от имени сообщества;
   * в случае стены пользователя опубликованы не самим этим пользователем, а другими.
@@ -540,8 +550,8 @@ so URL-encoding can be required for the direct call:
    *По умолчанию* (отсутствие параметра) выводятся записи ото всех,
    если они не фильтруются другими параметрами.
 * <a name="rus-sign"></a> `allow_signed` — допускать или нет подписанные записи, опубликованные
-  от имени сообщества, если передан параметр `owner_only`
-  или `non_owner_only`/`not_owner_only`.
+  от имени сообщества, если передан параметр [`owner_only`](#rus-owner-only)
+  или [`non_owner_only`/`not_owner_only`](#rus-non-owner-only).
 
   *По умолчанию* (отсутствие параметра) допустимы все записи,
   которые проходят фильтрацию другими параметрами.
@@ -549,9 +559,9 @@ so URL-encoding can be required for the direct call:
   Допустимые значения (регистр не учитывается): [отсутствие значения]
   (аналог `true`), `true`, `false`, `0` (аналог `false`),
   `1` (аналог `true`), все остальные значения воспринимаются как `true`.
-  * В случае переданного параметра `owner_only` позволяет исключать
+  * В случае переданного параметра [`owner_only`](#rus-owner-only) позволяет исключать
     подписанные записи путем передачи параметра `allow_signed` со значением `false`.
-  * В случае переданного параметра `non_owner_only` или `not_owner_only`
+  * В случае переданного параметра [`non_owner_only` или `not_owner_only`](#rus-non-owner-only)
     позволяет дополнительно включать в RSS-ленту подписанные записи
     путем передачи параметра `allow_signed` со значением `true`,
 * <a name="rus-ads"></a> `skip_ads` — если передан (можно без значения),
@@ -567,7 +577,7 @@ so URL-encoding can be required for the direct call:
   *По умолчанию* [отсутствующий параметр] отключено.
 
   Когда включено, скрипт пытается получить ссылку на видеоплеер,
-  но если `access_token` не имеет разрешения `video`,
+  но если [`access_token`](#rus-user-access-token) не имеет разрешения `video`,
   то этот параметр принудительно принимает значение `false`.
 
   Если скрипту удается получить ссылку на видеоплеер,
@@ -682,7 +692,7 @@ GET-параметры может потребоваться URL-кодиров�
 * Если при изменении количества комментариев к записи в вашем агрегаторе RSS-лент
   запись помечается/ранжируется как новая/обновленная, то для такого случая
   есть возможность отключить счетчик комментариев,
-  добавив GET-параметр `disable_comments_amount`:
+  добавив GET-параметр [`disable_comments_amount`](#rus-comments-counter):
   
   ```index.php?id=-1&disable_comments_amount```
   или
