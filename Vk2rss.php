@@ -500,7 +500,7 @@ class Vk2rss
         $par_split_regex = '@[\s ]*?(?:<br/?>|\n)+[\s ]*?@u'; # PHP 5.2.X: \s does not contain non-break space
 
         if (preg_match(self::EMPTY_STRING_PATTERN, $post->text) === 0) {
-            $post_text = $post->text;
+            $post_text = htmlspecialchars($post->text, ENT_NOQUOTES);
             if (!$this->disable_html) {
                 $post_text = preg_replace(self::TEXTUAL_LINK_PATTERN,
                                           self::TEXTUAL_LINK_REPLACE_PATTERN,
@@ -516,7 +516,7 @@ class Vk2rss
                         list($preview_photo_src, $huge_photo_src) = $this->getPreviewAndOriginal($attachment->photo->sizes);
                         $photo_text = preg_replace('|^Original: https?://\S+\s*|u',
                                                    '',
-                                                   $attachment->photo->text);
+                                                   htmlspecialchars($attachment->photo->text, ENT_NOQUOTES));
                         if (!$this->disable_html) {
                             $photo_text = preg_replace(self::TEXTUAL_LINK_PATTERN,
                                                        self::TEXTUAL_LINK_REPLACE_PATTERN,
@@ -531,23 +531,21 @@ class Vk2rss
                                                        preg_split($par_split_regex, $photo_text),
                                                        array($photo));
                         } else {
-                            array_push($description, $photo);
+                            $description[] = $photo;
                         }
                         break;
                     }
                     case 'album': {
                         list($preview_thumb_src, $huge_thumb_src) = $this->getPreviewAndOriginal($attachment->album->thumb->sizes);
-                        $album_title = $attachment->album->title;
+                        $album_title = htmlspecialchars($attachment->album->title, ENT_NOQUOTES);
                         $album_url = "https://vk.com/album" . $attachment->album->owner_id . "_" . $attachment->album->id;
-                        array_push($description, $this->attachment_delimiter);
+                        $description[] = $this->attachment_delimiter;
                         if ($this->disable_html) {
-                            array_push($description,
-                                       self::ALBUM_TITLE_PREFIX . " «" . $album_title . "»: " . $album_url);
+                            $description[] = self::ALBUM_TITLE_PREFIX . " «" . $album_title . "»: " . $album_url;
                         } else {
-                            array_push($description,
-                                       "<a href='{$album_url}'>" . self::ALBUM_TITLE_PREFIX . " «" . $album_title . "»</a>" );
+                            $description[] = "<a href='{$album_url}'>" . self::ALBUM_TITLE_PREFIX . " «" . $album_title . "»</a>";
                         }
-                        $album_description = $attachment->album->description;
+                        $album_description = htmlspecialchars($attachment->album->description, ENT_NOQUOTES);
                         if (!$this->disable_html) {
                             $album_description = preg_replace(self::TEXTUAL_LINK_PATTERN,
                                                        self::TEXTUAL_LINK_REPLACE_PATTERN,
@@ -559,12 +557,12 @@ class Vk2rss
                         $thumb = $this->disable_html
                             ? $huge_thumb_src
                             : "<a href='{$huge_thumb_src}'><img src='{$preview_thumb_src}'/></a>";
-                        array_push($description, $thumb);
+                        $description[] = $thumb;
                         break;
                     }
                     case 'audio': {
                         $title = self::AUDIO_TITLE_PREFIX . " {$attachment->audio->artist} — «{$attachment->audio->title}»";
-                        array_push($description, $title);
+                        $description[] = htmlspecialchars($title, ENT_NOQUOTES);
                         break;
                     }
                     case 'doc': {
@@ -574,21 +572,22 @@ class Vk2rss
                         unset($params['dl']);
                         $url['query'] = http_build_query($params);
                         $url = build_url($url);
+                        $title = htmlspecialchars($attachment->doc->title, ENT_NOQUOTES);
                         if (!empty($attachment->doc->preview->photo)) {
                             list($preview_src, $huge_photo_src) = $this->getPreviewAndOriginal($attachment->doc->preview->photo->sizes);
                             if ($this->disable_html) {
-                                array_push($description, self::IMAGE_TITLE_PREFIX . " «{$attachment->doc->title}»: {$huge_photo_src} ({$url})");
+                                $description[] = self::IMAGE_TITLE_PREFIX . " «{$title}»: {$huge_photo_src} ({$url})";
                             } else {
                                 array_push($description,
                                            $this->attachment_delimiter,
-                                           "<a href='{$url}'>" . self::IMAGE_TITLE_PREFIX . " «{$attachment->doc->title}»</a>:",
+                                           "<a href='{$url}'>" . self::IMAGE_TITLE_PREFIX . " «{$title}»</a>:",
                                            "<a href='{$huge_photo_src}'><img src='{$preview_src}'/></a>");
                             }
                         } else {
                             if ($this->disable_html) {
-                                array_push($description, self::FILE_TITLE_PREFIX . " «{$attachment->doc->title}»: {$url}");
+                                $description[] = self::FILE_TITLE_PREFIX . " «{$title}»: {$url}";
                             } else {
-                                array_push($description, "<a href='{$url}'>" . self::FILE_TITLE_PREFIX . " «{$attachment->doc->title}»</a>");
+                                $description[] = "<a href='{$url}'>" . self::FILE_TITLE_PREFIX . " «{$title}»</a>";
                             }
                         }
                         break;
@@ -600,7 +599,7 @@ class Vk2rss
                                        "{$attachment->link->title}: {$attachment->link->url}");
                         } else {
                             $link_text = preg_match(self::EMPTY_STRING_PATTERN, $attachment->link->title) === 0 ?
-                                $attachment->link->title : $attachment->link->url;
+                                htmlspecialchars($attachment->link->title, ENT_NOQUOTES) : $attachment->link->url;
                             if (!empty($attachment->link->photo)) {
                                 list($preview_src, $_) = $this->getPreviewAndOriginal($attachment->link->photo->sizes);
                                 array_push($description,
@@ -614,7 +613,7 @@ class Vk2rss
                             }
                         }
                         if (preg_match(self::EMPTY_STRING_PATTERN, $attachment->link->description) === 0) {
-                            array_push($description, $attachment->link->description);
+                            $description[] = htmlspecialchars($attachment->link->description, ENT_NOQUOTES);
                         }
                         break;
                     }
@@ -628,6 +627,7 @@ class Vk2rss
                             $video_text = $attachment->video->description;
                             $restricted = false;
                         }
+                        $video_text = htmlspecialchars($video_text, ENT_NOQUOTES);
                         if (!$this->disable_html) {
                             $video_text = preg_replace(self::TEXTUAL_LINK_PATTERN,
                                                        self::TEXTUAL_LINK_REPLACE_PATTERN,
@@ -649,13 +649,13 @@ class Vk2rss
                         $video_url = $playable ? $videos[$video_id]->player : "https://vk.com/video{$video_id}";
 
                         if ($this->disable_html) {
-                            array_push($content, $video_url);
+                            $content[] = $video_url;
                         } else {
                             if ($playable) {
-                                array_push($content, "<iframe src='${video_url}'>${video_url}</iframe>");
+                                $content[] = "<iframe src='${video_url}'>${video_url}</iframe>";
                             } else {
                                 list($preview_src, $_) = $this->getPreviewAndOriginal($attachment->video->image);
-                                array_push($content, "<a href='${video_url}'><img src='{$preview_src}'/></a>");
+                                $content[] = "<a href='${video_url}'><img src='{$preview_src}'/></a>";
                             }
                         }
                         $description = array_merge($description, $content, $video_description);
@@ -722,7 +722,7 @@ class Vk2rss
                 $repost_delimiter = preg_replace('/\{author\}/u', $author, $this->repost_delimiter);
                 $repost_delimiter = preg_replace('/\{author_ins\}/u', $author_ins, $repost_delimiter);
                 $repost_delimiter = preg_replace('/\{author_gen\}/u', $author_gen, $repost_delimiter);
-                array_push($description, $repost_delimiter);
+                $description[] = $repost_delimiter;
                 $this->extractDescription($description, $videos, $repost, $profiles, $groups);
                 if (preg_match($this->delimiter_regex, end($description)) === 1) {
                     array_pop($description);
