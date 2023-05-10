@@ -612,7 +612,8 @@ class Vk2rss
                                            "<a href='{$attachment->link->url}'>{$link_text}</a>");
                             }
                         }
-                        if (preg_match(self::EMPTY_STRING_PATTERN, $attachment->link->description) === 0) {
+                        if (!empty($attachment->link->description)
+                            && preg_match(self::EMPTY_STRING_PATTERN, $attachment->link->description) === 0) {
                             $description[] = htmlspecialchars($attachment->link->description, ENT_NOQUOTES);
                         }
                         break;
