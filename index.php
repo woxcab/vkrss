@@ -1,5 +1,4 @@
 <?php
-error_reporting(0); # E_ALL - E_DEPRECATED
 require_once('Vk2rss.php');
 header("Content-type: text/xml; charset=utf-8");
 
