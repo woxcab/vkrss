@@ -56,6 +56,14 @@ class Vk2rss
      */
     const GLOBAL_SEARCH_FEED_TITLE_PREFIX = "Результаты поиска по запросу ";
     /**
+     * Newsfeed (recent) title
+     */
+    const GLOBAL_NEWS_FEED_RECENT_TITLE_PREFIX = "Новости";
+    /**
+     * Newsfeed (top) title
+     */
+    const GLOBAL_NEWS_FEED_TOP_TITLE_PREFIX = "Интересное";
+    /**
      * Video title
      */
     const VIDEO_TITLE_PREFIX = "Видеозапись";
@@ -194,10 +202,10 @@ class Vk2rss
      */
     public function __construct($config)
     {
-        if (!((empty($config['id']) xor empty($config['global_search']))
+        if (!((empty($config['id']) || empty($config['global_search']) || empty($config['newsfeed_type']))
               && !empty($config['access_token']))) {
             throw new Exception("Identifier of user or community and access/service token ".
-                                "OR global search query and access/service token must be passed", 400);
+                                "OR global search query OR newsfeed type and access/service token must be passed", 400);
         }
         $this->access_token = $config['access_token'];
         $id = $config['id'];
@@ -221,6 +229,7 @@ class Vk2rss
             $this->domain = $id;
         }
         $this->global_search = empty($config['global_search']) ? null : $config['global_search'];
+        $this->newsfeed_type = empty($config['newsfeed_type']) ? null : $config['newsfeed_type'];
         $this->count = empty($config['count']) ? 20 : $config['count'];
         $this->include = isset($config['include']) && $config['include'] !== ''
             ? preg_replace("/(?<!\\\)\//u", "\\/", $config['include']) : null;
@@ -277,6 +286,14 @@ class Vk2rss
         $feed = new FeedWriter(RSS2);
         $id = $this->domain ?: ($this->owner_id > 0 ? 'id' . $this->owner_id : 'club' . abs($this->owner_id));
 
+        if(!empty($this->newsfeed_type) ) {
+            if($this->newsfeed_type == 'recent') {
+                $id = 'feed';
+            } else {
+                $id = 'feed?section=recommended';
+            }
+        }
+
         $feed->setLink('https://vk.com/' . $id);
 
         $feed->setChannelElement('language', 'ru-ru');
@@ -297,8 +314,14 @@ class Vk2rss
         }
 
         for ($offset = 0; $offset < $this->count; $offset += $offset_step) {
-            if (empty($this->global_search)) {
+            if (empty($this->global_search) && empty($this->newsfeed_type)) {
                 $wall_response = $this->getContent("wall.get", $offset);
+            } else if(!empty($this->newsfeed_type)) {
+                $method_name = $this->newsfeed_type == 'recent' ? 'newsfeed.get' : 'newsfeed.getByType';
+                $wall_response = $this->getContent($method_name, 
+                $next_from, 
+                false, 
+                ['extended' => '1', 'fields' => 'first_name_ins,last_name_ins,first_name_gen,last_name_gen,screen_name', 'feed_type' => in_array($this->newsfeed_type, ['recent', 'top']) ? $this->newsfeed_type : 'top']);
             } else {
                 $wall_response = $this->getContent("newsfeed.search", $next_from);
             }
@@ -316,7 +339,13 @@ class Vk2rss
         }
 
         try {
-            if (!empty($this->global_search)) {
+            if (!empty($this->newsfeed_type)) {
+                if($this->newsfeed_type == 'recent') {
+                    $feed_title = self::GLOBAL_NEWS_FEED_RECENT_TITLE_PREFIX;
+                } else {
+                    $feed_title = self::GLOBAL_NEWS_FEED_TOP_TITLE_PREFIX;
+                }
+            } else if (!empty($this->global_search)) {
                 $feed_title = self::GLOBAL_SEARCH_FEED_TITLE_PREFIX . '"' . $this->global_search . '"';
                 $feed_description = $feed_title;
             } elseif (!empty($this->domain) && isset($profiles[$this->domain])
@@ -771,6 +800,14 @@ class Vk2rss
                 if (!empty($offset)) {
                     $url .= "&start_from=${offset}";
                 }
+                break;
+            case "newsfeed.getByType":
+            case "newsfeed.get":
+                $default_count = 100;
+                if (!empty($offset)) {
+                    $url .= "&start_from=${offset}";
+                }
+
                 break;
             case "video.get":
                 $default_count = 200;
