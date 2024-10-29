@@ -58,11 +58,11 @@ class Vk2rss
     /**
      * Recent news title
      */
-    const RECENT_NEWS_TITLE_PREFIX = "Новости для";
+    const RECENT_NEWS_TITLE_PREFIX = "Новости для ";
     /**
      * Recommended news title
      */
-    const RECOMMENDED_NEWS_TITLE_PREFIX = "Интересное для";
+    const RECOMMENDED_NEWS_TITLE_PREFIX = "Интересное для ";
     /**
      * Video title
      */
@@ -100,6 +100,10 @@ class Vk2rss
      */
     const API_BASE_URL = 'https://api.vk.com/method/';
 
+    /**
+     * @var stdClass   profile of access token's owner
+     */
+    protected $profile;
     /**
      * @var int   identifier of user or group which wall going to be extracted
      */
@@ -212,9 +216,31 @@ class Vk2rss
             throw new Exception("Access/service token with identifier of user or community ".
                                 "OR global search query OR newsfeed type must be passed", 400);
         }
+
+        if (isset($config['proxy'])) {
+            try {
+                $this->proxy = new ProxyDescriptor($config['proxy'],
+                                                   isset($config['proxy_type']) ? $config['proxy_type'] : null,
+                                                   isset($config['proxy_login']) ? $config['proxy_login'] : null,
+                                                   isset($config['proxy_password']) ? $config['proxy_password'] : null);
+            } catch (Exception $exc) {
+                throw new Exception("Invalid proxy parameters: " . $exc->getMessage(), 400);
+            }
+        }
+        $this->connector = new ConnectionWrapper($this->proxy);
+
+        $this->profile = null;
         $this->access_token = $config['access_token'];
         $id = $config['id'];
-        if (strcmp(substr($id, 0, 2), 'id') === 0 && ctype_digit(substr($id, 2))) {
+        if (empty($id)) {
+            $user_response = $this->getContent('users.get');
+            if (property_exists($user_response, 'error')) {
+                throw new APIError($user_response, $this->connector->getLastUrl());
+            }
+            $this->profile = $user_response->response[0];
+            $this->owner_id = $this->profile->id;
+            $this->domain = null;
+        } elseif (strcmp(substr($id, 0, 2), 'id') === 0 && ctype_digit(substr($id, 2))) {
             $this->owner_id = (int)substr($id, 2);
             $this->domain = null;
         } elseif (strcmp(substr($id, 0, 4), 'club') === 0 && ctype_digit(substr($id, 4))) {
@@ -264,21 +290,9 @@ class Vk2rss
             $this->delimiter_regex = '/^(' . preg_quote($this->repost_delimiter, '/')
                 . '|' . preg_quote($this->attachment_delimiter, '/') . '$)/u';
         }
-        if (isset($config['proxy'])) {
-            try {
-                $this->proxy = new ProxyDescriptor($config['proxy'],
-                                                   isset($config['proxy_type']) ? $config['proxy_type'] : null,
-                                                   isset($config['proxy_login']) ? $config['proxy_login'] : null,
-                                                   isset($config['proxy_password']) ? $config['proxy_password'] : null);
-            } catch (Exception $exc) {
-                throw new Exception("Invalid proxy parameters: " . $exc->getMessage(), 400);
-            }
-        }
         if (isset($config['donut'])) {
             $this->donut = logical_value($config, 'donut');
         }
-
-        $this->connector = new ConnectionWrapper($this->proxy);
     }
 
     /**
@@ -309,6 +323,10 @@ class Vk2rss
         $feed->setChannelElement('pubDate', date(DATE_RSS, time()));
 
         $profiles = array();
+        if (!empty($this->profile)) {
+            $profiles[$this->profile->id] = $this->profile;
+            $profiles[$this->profile->screen_name] = $this->profile;
+        }
         $groups = array();
         $next_from = null;
         $offset_step = empty($this->global_search) ? 100 : 200;
@@ -369,7 +387,7 @@ class Vk2rss
             }
         } catch (Exception $exc) {
             throw new Exception("Invalid user/group identifier, its wall is empty, " .
-                                "empty search result, or no news", 400);
+                                "empty search result, or no news: ", 400, $exc);
         }
 
         $feed->setTitle($feed_title);
@@ -488,14 +506,17 @@ class Vk2rss
                 $new_item->addElement('author', $profile->first_name . ' ' . $profile->last_name);
             } else {
                 $base_post = isset($post->copy_history) ? end($post->copy_history) : $post;
+                $from_id = isset($base_post->from_id)
+                    ? $base_post->from_id
+                    : (isset($base_post->source_id) ? $base_post->source_id : 0);
                 if (isset($base_post->signer_id) && isset($profiles[$base_post->signer_id])) { # the 2nd owing to VK API bug
                     $profile = $profiles[$base_post->signer_id];
                     $new_item->addElement('author', $profile->first_name . ' ' . $profile->last_name);
-                } elseif ($base_post->from_id > 0) {
-                    $profile = $profiles[$base_post->from_id];
+                } elseif ($from_id > 0) {
+                    $profile = $profiles[$from_id];
                     $new_item->addElement('author', $profile->first_name . ' ' . $profile->last_name);
-                } elseif ($base_post->from_id < 0) {
-                    $group = $groups[abs($base_post->from_id)];
+                } elseif ($from_id < 0) {
+                    $group = $groups[abs($from_id)];
                     $new_item->addElement('author', $group->name);
                 } elseif ($base_post->owner_id > 0) {
                     $profile = $profiles[$base_post->owner_id];
@@ -789,6 +810,9 @@ class Vk2rss
             $url .= "&access_token={$this->access_token}";
         }
         switch ($api_method) {
+            case "users.get":
+                unset($params['extended']);
+                break;
             case "wall.get":
                 if (!empty($this->domain)) {
                     $url .= "&domain={$this->domain}";
@@ -831,13 +855,15 @@ class Vk2rss
             $url .= "&${key}=${value}";
         }
 
-        $total_count = ($api_method === "video.get") ? 200 : $this->count;
-        if (!empty($offset) && mb_substr($api_method, 0, 8) !== "newsfeed") {
-            $count = min($total_count - $offset, $default_count);
-        } else {
-            $count = min($total_count, $default_count);
+        if ($api_method !== "users.get") {
+            $total_count = ($api_method === "video.get") ? 200 : $this->count;
+            if (!empty($offset) && mb_substr($api_method, 0, 8) !== "newsfeed") {
+                $count = min($total_count - $offset, $default_count);
+            } else {
+                $count = min($total_count, $default_count);
+            }
+            $url .= "&count={$count}";
         }
-        $url .= "&count={$count}";
 
         $this->connector->openConnection();
         try {
