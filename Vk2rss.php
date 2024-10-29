@@ -207,7 +207,7 @@ class Vk2rss
      */
     public function __construct($config)
     {
-        if ((empty($config['id']) + empty($config['global_search']) + empty($config['news_type']) !== 1)
+        if ((!empty($config['id']) + !empty($config['global_search']) + !empty($config['news_type']) !== 1)
               || empty($config['access_token'])) {
             throw new Exception("Access/service token with identifier of user or community ".
                                 "OR global search query OR newsfeed type must be passed", 400);
