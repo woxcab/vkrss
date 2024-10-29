@@ -56,13 +56,13 @@ class Vk2rss
      */
     const GLOBAL_SEARCH_FEED_TITLE_PREFIX = "Результаты поиска по запросу ";
     /**
-     * Newsfeed (recent) title
+     * Recent news title
      */
-    const GLOBAL_NEWS_FEED_RECENT_TITLE_PREFIX = "Новости";
+    const RECENT_NEWS_TITLE_PREFIX = "Новости для";
     /**
-     * Newsfeed (top) title
+     * Recommended news title
      */
-    const GLOBAL_NEWS_FEED_TOP_TITLE_PREFIX = "Интересное";
+    const RECOMMENDED_NEWS_TITLE_PREFIX = "Интересное для";
     /**
      * Video title
      */
@@ -112,6 +112,10 @@ class Vk2rss
      * @var string   search query to lookup on all opened walls
      */
     protected $global_search;
+    /**
+     * @var string   type of extracting news feed: recent or recommended
+     */
+    protected $news_type;
     /**
      * @var int   quantity of last posts from the wall (at most 100)
      */
@@ -199,13 +203,14 @@ class Vk2rss
      *                         where id and access_token are required
      * @throws Exception   If required parameters id or access_token do not present in the configuration
      *                     or proxy parameters are invalid
+     *                     or news feed type is invalid
      */
     public function __construct($config)
     {
-        if (!((empty($config['id']) || empty($config['global_search']) || empty($config['newsfeed_type']))
-              && !empty($config['access_token']))) {
-            throw new Exception("Identifier of user or community and access/service token ".
-                                "OR global search query OR newsfeed type and access/service token must be passed", 400);
+        if ((empty($config['id']) + empty($config['global_search']) + empty($config['news_type']) !== 1)
+              || empty($config['access_token'])) {
+            throw new Exception("Access/service token with identifier of user or community ".
+                                "OR global search query OR newsfeed type must be passed", 400);
         }
         $this->access_token = $config['access_token'];
         $id = $config['id'];
@@ -229,7 +234,14 @@ class Vk2rss
             $this->domain = $id;
         }
         $this->global_search = empty($config['global_search']) ? null : $config['global_search'];
-        $this->newsfeed_type = empty($config['newsfeed_type']) ? null : $config['newsfeed_type'];
+        if (empty($config['news_type'])) {
+            $this->news_type = null;
+        } else {
+            if ($config['news_type'] !== 'recent' && $config['news_type'] !== 'recommended') {
+                throw new Exception('Bad news type. Allowed values: "recent" or "recommended"');
+            }
+            $this->news_type = $config['news_type'];
+        }
         $this->count = empty($config['count']) ? 20 : $config['count'];
         $this->include = isset($config['include']) && $config['include'] !== ''
             ? preg_replace("/(?<!\\\)\//u", "\\/", $config['include']) : null;
@@ -284,17 +296,14 @@ class Vk2rss
         }
 
         $feed = new FeedWriter(RSS2);
-        $id = $this->domain ?: ($this->owner_id > 0 ? 'id' . $this->owner_id : 'club' . abs($this->owner_id));
 
-        if(!empty($this->newsfeed_type) ) {
-            if($this->newsfeed_type == 'recent') {
-                $id = 'feed';
-            } else {
-                $id = 'feed?section=recommended';
-            }
+        if(!empty($this->news_type) ) {
+            $path = ($this->news_type === 'recent') ? 'feed' : 'feed?section=recommended';
+        } else {
+            $path = $this->domain ?: ($this->owner_id > 0 ? 'id' . $this->owner_id : 'club' . abs($this->owner_id));
         }
 
-        $feed->setLink('https://vk.com/' . $id);
+        $feed->setLink('https://vk.com/' . $path);
 
         $feed->setChannelElement('language', 'ru-ru');
         $feed->setChannelElement('pubDate', date(DATE_RSS, time()));
@@ -304,7 +313,7 @@ class Vk2rss
         $next_from = null;
         $offset_step = empty($this->global_search) ? 100 : 200;
 
-        if (empty($this->global_search) && $this->donut) {
+        if (empty($this->global_search) && empty($this->news_type) && $this->donut) {
             for ($offset = 0; $offset < $this->count; $offset += $offset_step) {
                 $wall_response = $this->getContent("wall.get", $offset, true);
                 if (!$this->processWallResponse($feed, $wall_response, $profiles, $groups)) {
@@ -314,53 +323,53 @@ class Vk2rss
         }
 
         for ($offset = 0; $offset < $this->count; $offset += $offset_step) {
-            if (empty($this->global_search) && empty($this->newsfeed_type)) {
-                $wall_response = $this->getContent("wall.get", $offset);
-            } else if(!empty($this->newsfeed_type)) {
-                $method_name = $this->newsfeed_type == 'recent' ? 'newsfeed.get' : 'newsfeed.getByType';
-                $wall_response = $this->getContent($method_name, 
-                $next_from, 
-                false, 
-                ['extended' => '1', 'fields' => 'first_name_ins,last_name_ins,first_name_gen,last_name_gen,screen_name', 'feed_type' => in_array($this->newsfeed_type, ['recent', 'top']) ? $this->newsfeed_type : 'top']);
-            } else {
+            if (!empty($this->news_type)) {
+                $method_name = $this->news_type == 'recent' ? 'newsfeed.get' : 'newsfeed.getRecommended';
+                $wall_response = $this->getContent($method_name, $next_from);
+            } elseif (!empty($this->global_search)) {
                 $wall_response = $this->getContent("newsfeed.search", $next_from);
-            }
-            if (!empty($this->global_search)) {
                 $next_from = empty($wall_response->response->next_from)
                     ? null : $wall_response->response->next_from;
+            } else {
+                $wall_response = $this->getContent("wall.get", $offset);
             }
             if (!$this->processWallResponse($feed, $wall_response, $profiles, $groups)) {
                 break;
             }
 
-            if (!empty($this->global_search) && is_null($next_from)) {
+            if ((!empty($this->global_search) || !empty($this->news_type))
+                    && is_null($next_from)) {
                 break;
             }
         }
 
         try {
-            if (!empty($this->newsfeed_type)) {
-                if($this->newsfeed_type == 'recent') {
-                    $feed_title = self::GLOBAL_NEWS_FEED_RECENT_TITLE_PREFIX;
-                } else {
-                    $feed_title = self::GLOBAL_NEWS_FEED_TOP_TITLE_PREFIX;
-                }
-            } else if (!empty($this->global_search)) {
+            if (!empty($this->global_search)) {
                 $feed_title = self::GLOBAL_SEARCH_FEED_TITLE_PREFIX . '"' . $this->global_search . '"';
                 $feed_description = $feed_title;
             } elseif (!empty($this->domain) && isset($profiles[$this->domain])
-                || (!empty($this->owner_id) && $this->owner_id > 0)
+                      || (!empty($this->owner_id) && $this->owner_id > 0)
             ) {
                 $profile = isset($profiles[$this->domain]) ? $profiles[$this->domain] : $profiles[$this->owner_id];
-                $feed_title = $profile->first_name . ' ' . $profile->last_name;
-                $feed_description = self::USER_FEED_DESCRIPTION_PREFIX . $profile->first_name . ' ' . $profile->last_name;
+                if (!empty($this->news_type)) {
+                    $feed_title = ($this->news_type === 'recent')
+                        ? self::RECENT_NEWS_TITLE_PREFIX
+                        : self::RECOMMENDED_NEWS_TITLE_PREFIX;
+                    $feed_title .= $profile->first_name_gen . ' ' . $profile->last_name_gen;
+                    $feed_description = $feed_title; # TODO: change description prefix
+                } else {
+                    $feed_title = $profile->first_name . ' ' . $profile->last_name;
+                    $feed_description = self::USER_FEED_DESCRIPTION_PREFIX
+                        . $profile->first_name . ' ' . $profile->last_name;
+                }
             } else {
                 $group = isset($groups[$this->domain]) ? $groups[$this->domain] : $groups[abs($this->owner_id)];
                 $feed_title = $group->name;
                 $feed_description = self::GROUP_FEED_DESCRIPTION_PREFIX . $group->name;
             }
         } catch (Exception $exc) {
-            throw new Exception("Invalid user/group identifier, its wall is empty, or empty search result", 400);
+            throw new Exception("Invalid user/group identifier, its wall is empty, " .
+                                "empty search result, or no news", 400);
         }
 
         $feed->setTitle($feed_title);
@@ -801,13 +810,13 @@ class Vk2rss
                     $url .= "&start_from=${offset}";
                 }
                 break;
-            case "newsfeed.getByType":
+            case "newsfeed.getRecommended":
             case "newsfeed.get":
                 $default_count = 100;
+                $params['filters'] = 'post';
                 if (!empty($offset)) {
                     $url .= "&start_from=${offset}";
                 }
-
                 break;
             case "video.get":
                 $default_count = 200;
@@ -823,7 +832,7 @@ class Vk2rss
         }
 
         $total_count = ($api_method === "video.get") ? 200 : $this->count;
-        if (!empty($offset) && $api_method !== "newsfeed.search") {
+        if (!empty($offset) && mb_substr($api_method, 0, 8) !== "newsfeed") {
             $count = min($total_count - $offset, $default_count);
         } else {
             $count = min($total_count, $default_count);

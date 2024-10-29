@@ -2,7 +2,7 @@
 require_once('Vk2rss.php');
 header("Content-type: text/xml; charset=utf-8");
 
-$supported_parameters = array('id', 'domain', 'owner_id', 'global_search', 'newsfeed_type', 'count', 'include', 'exclude',
+$supported_parameters = array('id', 'domain', 'owner_id', 'global_search', 'news_type', 'count', 'include', 'exclude',
                               'disable_html', 'owner_only', 'non_owner_only', 'not_owner_only', 'access_token',
                               'disable_comments_amount', 'proxy', 'proxy_type', 'proxy_login', 'proxy_password',
                               'allow_signed', 'skip_ads', 'allow_embedded_video', 'repost_delimiter',
