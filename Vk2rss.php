@@ -62,7 +62,7 @@ class Vk2rss
     /**
      * Recommended news title
      */
-    const RECOMMENDED_NEWS_TITLE_PREFIX = "Интересное для ";
+    const RECOMMENDED_NEWS_TITLE_PREFIX = "Рекомендуемое для ";
     /**
      * Video title
      */
@@ -374,7 +374,7 @@ class Vk2rss
                         ? self::RECENT_NEWS_TITLE_PREFIX
                         : self::RECOMMENDED_NEWS_TITLE_PREFIX;
                     $feed_title .= $profile->first_name_gen . ' ' . $profile->last_name_gen;
-                    $feed_description = $feed_title; # TODO: change description prefix
+                    $feed_description = $feed_title;
                 } else {
                     $feed_title = $profile->first_name . ' ' . $profile->last_name;
                     $feed_description = self::USER_FEED_DESCRIPTION_PREFIX
@@ -387,7 +387,7 @@ class Vk2rss
             }
         } catch (Exception $exc) {
             throw new Exception("Invalid user/group identifier, its wall is empty, " .
-                                "empty search result, or no news: ", 400, $exc);
+                                "empty search result, or no news", 400, $exc);
         }
 
         $feed->setTitle($feed_title);
