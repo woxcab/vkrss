@@ -14,6 +14,7 @@
   about user access token creating.
 * Generating RSS feed for different opened walls based on 
   [global search](#eng-global-search) results.
+* Generating RSS [news feed](#eng-newsfeed) of access token's owner.
 * Feeding [arbitrary number](#eng-count) of posts.
 * Posts filtering [by author](#eng-owner-only): all posts, posts by community/profile owner
   only or all posts except posts by community/profile owner.
@@ -56,10 +57,11 @@ in the script output and in the server/interpreter logfile.
 Main `index.php` script accepts the below GET-parameters.
 
 [`id`](#eng-id) and [`access_token`](#eng-access-token) 
-**OR** [`global_search`](#eng-global-search) and [`access_token`](#eng-access-token) parameters 
-are required, another parameters are optional.
+**OR** [`global_search`](#eng-global-search) and [`access_token`](#eng-access-token)
+**OR** [`news_feed`](#eng-newsfeed) and [`access_token`](#eng-access-token)
+parameters are required, another parameters are optional.
 
-[`id`](#eng-id) and [`global_search`](#eng-global-search) parameters **cannot** be used together.
+[`id`](#eng-id), [`global_search`](#eng-global-search) and [`news_feed`](#eng-newsfeed) parameters **cannot** be used together.
 
 * <a name="eng-id"></a> [conditionally required]
   `id` is short name, ID number (community ID is started with `-` sign)
@@ -77,7 +79,16 @@ are required, another parameters are optional.
   `global_search` is an arbitrary text search query to lookup on all **opened** walls.
   It uses internal VK algorithms to search posts that're published by wall's **owner**.
   Search results are the same as on [this search page](https://vk.com/search?c[section]=statuses).
-  
+
+* <a name="eng-newsfeed"></a> [conditionally required]
+  `news_type` takes one of the values either `recent` (recent news) or `recommended` (VK recommended news).
+  It generates an RSS news feed of the access token's owner that's shown on [this news page](https://vk.com/feed).
+
+  News feed contains a **walls posts only**, the rest of news are ignored
+  (such as new friends of friends, new photos in friends' profiles and so on).
+
+  This parameter **requires** a user' access token with `wall` and `friends` permissions.
+
 * <a name="eng-access-token"></a> [required] `access_token` is
   * either service token that's specified in the app settings
     (you can create your own standalone application
@@ -290,14 +301,16 @@ index.php?id=club1&owner_only&allow_signed=false&access_token=XXXXXXXXX   # feed
 index.php?id=club1&non_owner_only&access_token=XXXXXXXXX   # feed contains only posts by users
 index.php?id=club1&non_owner_only&allow_signed&access_token=XXXXXXXXX   # feed contains only posts by users
                                                                         # and community posts with signature
-index.php?id=-1&count=100&include=(new|wall|\d+)&access_token=XXXXXXXXX
-index.php?global_search=query&count=300&access_token=XXXXXXXXX # search posts that contains 'query'
 index.php?id=club1&allow_embedded_video&access_token=XXXXXXXXX   # embed playable videos into RSS items' description
 index.php?id=-1&count=30&repost_delimiter=<hr><hr>Written by {author}:&access_token=XXXXXXXXX
 index.php?id=pitertransport&donut&access_token=XXXXXXXXX  # RSs feed contains VK Donut posts and regular posts
+index.php?news_type=recent&count=25&access_token=XXXXXXXXX # 25 recent posts of the news feed
+index.php?news_type=recommended&count=30&access_token=XXXXXXXXX # 30 VK recommended posts of the news feed
+index.php?global_search=query&count=300&access_token=XXXXXXXXX # search posts that contains 'query'
+index.php?id=-1&count=100&include=(new|wall|\d+)&access_token=XXXXXXXXX
 ```
-**Note**: one parameter contains special characters in the last example,
-so URL-encoding can be required for the direct call:
+**Note**: one parameter contains special characters in the two last examples,
+so URL-encoding can be required for the direct call, e.g.:
 ```index.php?id=-1&count=100&include=(new%7Cwall%7C%5Cd%2B)&access_token=XXXXXXXXX```
 
 
@@ -340,6 +353,7 @@ so URL-encoding can be required for the direct call:
   [Ниже описан один из способов получения токена](#rus-user-access-token).
 * Получение RSS-ленты, содержащей записи с различных открытых стен, 
   которые соответствуют [глобальному поисковому запросу](#rus-global-search).
+* Получение RSS-ленты [новостей](#rus-newsfeed) владельца токена.
 * Получение [произвольного количества](#rus-count) записей со стены.
 * Получение записей, [опубликованных](#rus-owner-only) от кого угодно, от имени
   сообщества/владельца страницы или ото всех, кроме сообщества/владельца страницы.
@@ -387,13 +401,15 @@ so URL-encoding can be required for the direct call:
 
 Пара параметров [`id`](#rus-id) и [`access_token`](#rus-access-token) 
 **ИЛИ** [`global_search`](#rus-global-search) и [`access_token`](#rus-access-token) 
+**ИЛИ** [`news_type`](#rus-newsfeed) и [`access_token`](#rus-access-token)
 обязательна, остальные параметры необязательны.
 
-Нельзя одновременно использовать параметры [`id`](#rus-id) и [`global_search`](#rus-global-search).
+Одновременно можно использовать только один из параметров
+[`id`](#rus-id), [`global_search`](#rus-global-search) или [`news_type`](#rus-newsfeed).
 
 * <a name="rus-id"></a> [условно обязательный] `id` — короткое название, ID-номер (в случае сообщества ID начинается со знака `-`)
   или полный идентификатор человека/сообщества (в виде idXXXX, clubXXXX, publicXXXX, eventXXXX), 
-  для которого будет строиться RSS-лента.
+  для стены которого будет строиться RSS-лента.
   Примеры допустимых значений параметра `id`:
   * `123456`, `id123456` — оба значения указывают на одну и ту же страницу пользователя с ID 123456,
   * `-123456`, `club123456` — оба значения указывают на одну и ту же группу с ID 123456,
@@ -409,6 +425,15 @@ so URL-encoding can be required for the direct call:
   записи со всех открытых стен, опубликованные владельцем профиля пользователя 
   или от имени сообщества. Результаты поиска аналогичны результатам 
   [на этой поисковой странице](https://vk.com/search?c%5Bsection%5D=statuses).
+
+* <a name="rus-newsfeed"></a> [условно обязательный] `news_type` —
+  тип новостной ленты владельца ключа доступа: значение
+  либо `recent` (последние новости), либо `recommended` (рекомендуемые новости)
+  — новости, которые отображаются [на странице новостей](https://vk.com/feed)
+  и только те, что являются **записями** на чьей-либо стене (все прочие новости,
+  такие как новые друзья друзей, новые фотографии в профилях друзей и т.п., будут проигнорированы).
+
+  Для использования этого параметра у ключа доступа пользователя обязательно наличие прав `wall` и `friends`.
 
 * <a name="rus-access-token"></a> [обязательный] `access_token` —
    * Либо сервисный ключ доступа, который указан в настройках приложения
@@ -664,14 +689,16 @@ index.php?id=club1&owner_only&allow_signed=false&access_token=XXXXXXXXX   # вы
 index.php?id=club1&non_owner_only&access_token=XXXXXXXXX   # выводятся только записи от пользователей (не от имени сообщества)
 index.php?id=club1&non_owner_only&allow_signed&access_token=XXXXXXXXX   # выводятся только записи от имени сообщества,
                                                                         # у которых есть подпись, и записи от пользователей
-index.php?id=-1&count=100&include=(рекомендуем|приглашаем|\d+)&access_token=XXXXXXXXX
-index.php?global_search=запрос&count=300&access_token=XXXXXXXXX # поиск записей, содержащих слово "запрос"
 index.php?id=club1&allow_embedded_video&access_token=XXXXXXXXX   # встраивает проигрываемые видеозаписи в описание записи
 index.php?id=-1&count=30&repost_delimiter=<hr><hr>{author} пишет:&access_token=XXXXXXXXX
 index.php?id=pitertransport&donut&access_token=XXXXXXXXX  # Помимо обычных записей, в RSS ленту добавляются записи для донов
+index.php?news_type=recent&count=25&access_token=XXXXXXXXX # 25 самых свежих записей из новостной ленты
+index.php?news_type=recommended&count=30&access_token=XXXXXXXXX # 30 рекомендуемых записей из новостной ленты
+index.php?global_search=запрос&count=300&access_token=XXXXXXXXX # поиск записей, содержащих слово "запрос"
+index.php?id=-1&count=100&include=(рекомендуем|приглашаем|\d+)&access_token=XXXXXXXXX
 ```
-**Примечание**: в последнем примере при таком вызове напрямую через
-GET-параметры может потребоваться URL-кодирование символов:
+**Примечание**: в последних двух примерах при таком вызове напрямую через
+GET-параметры может потребоваться URL-кодирование символов у параметров `global_search`, `include` и им подобным:
 ```index.php?id=-1&count=100&include=(%D1%80%D0%B5%D0%BA%D0%BE%D0%BC%D0%B5%D0%BD%D0%B4%D1%83%D0%B5%D0%BC%7C%D0%BF%D1%80%D0%B8%D0%B3%D0%BB%D0%B0%D1%88%D0%B0%D0%B5%D0%BC%7C%5Cd%2B)&access_token=XXXXXXXXX```
 
 ## Возможные проблемы и их решения
