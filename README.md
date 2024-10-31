@@ -34,7 +34,7 @@
 
 
 ## Requirements
-* PHP>=5.3 (5.4.X, 5.5.X, 5.6.X, 7.X, 8.X included)
+* PHP>=5.3 (5.4.X, 5.5.X, 5.6.X, 7.X, 8.X are included)
   with installed `mbstring`, `json`, `pcre`, `openssl` bundled extensions.
 * Script prefers the built-in tools for the requests.
   If `allow_url_fopen` parameter is disabled in the PHP configuration
@@ -254,33 +254,35 @@ preferred getting user access token for the server side access to the walls.
 
 1. Create your own standalone application [here](https://vk.com/editapp?act=create).
    Created app can be off after token generation because it does not matter for the API requests.
+
+   **IMPORTANT NOTE**: currently, [newly created apps](https://id.vk.com/business/go)
+   require passport' data or organisation' data in the developer' dashboard
+   in order to generate access tokens with required permissions.
+
+   However, [old apps](https://vk.com/apps?act=manage) still provide the ability
+   to generate access tokens with required permissions.
+
 2. Authorize necessary account on vk.com and go to the next URL
 
-   `https://oauth.vk.com/authorize?client_id=APP_ID&display=page&redirect_uri&scope=offline,video&response_type=code&v=5.131`
+   `https://oauth.vk.com/authorize?client_id=APP_ID&scope=offline,video,wall,friends&redirect_uri=https%3A%2F%2Foauth.vk.com%2Fblank.html&display=page&response_type=token&revoke=1`
 
    where replace `APP_ID` with application ID that's specified in the app settings.
+  
+   The listed permissions in the `scope` parameter are as the follows:
+   * `offline` is required to get endless access token;
+   * `video` is only required for the [`allow_embedded_video`](#eng-videos) option;
+   * `wall` and `friends` are only required for the [`news_type`](#eng-newsfeed) option.
+   
+   Therefore, if you do not want to use some features then the relevant permissions can be omitted.
 
-   The permission `video` is only required when [`allow_embedded_video`](#eng-videos) option is required.
-   Therefore if you do not want use this feature then this permission can be omitted.
+3. Confirm permissions. The result URL in the address bar
+   contains sought-for access token after the `access_token=` string.
 
-3. Confirm permissions. Remember the value of GET-parameter `code`
-   of the result URL in the browser address bar.
-
-4. Go to the URL
-
-   `https://oauth.vk.com/access_token?client_id=APP_ID&client_secret=APP_SECRET&redirect_uri&code=AUTH_CODE`
-
-   where replace `APP_ID` with application ID, replace `APP_SECRET`
-   with secure key that's specified in the app settings,
-   replace `AUTH_CODE` with `code` value from the previous step.
-
-   The result JSON-response contains sought-for access token.
-
-Bonus: created app keeps API calls statistics so you can see it.
+Bonus: created app keeps API calls statistics, so you can see it.
 
 **Warning**: If user terminates all sessions in him security settings
-then him access token becomes invalid; in that case, user must create
-new access token repeating steps 2-4.
+then all him access tokens becomes invalid; in that case, user must create
+new access token by repeating steps 2-4.
 
 
 ## Usage Examples
@@ -636,31 +638,30 @@ so URL-encoding can be required for the direct call, e.g.:
    По желанию после генерации ключей в настройках приложения можно изменить состояние
    на «Приложение отключено» — это никак не помешает генерации RSS-ленты.
 
+   **ВАЖНОЕ**: в настоящее время у [новосозданных приложений](https://id.vk.com/business/go) требуется ввод паспортных данных
+   или данных об организации в личном кабинете разработчика, чтобы приложение могло получать доступ к нужным правам.
+
+   При этом [старые standalone-приложения](https://vk.com/apps?act=manage) по-прежнему работают
+   и дают возможность генерировать ключ доступа со всеми нужными правами.
+
 2. После авторизации под нужным профилем пройти по ссылке:
 
-   `https://oauth.vk.com/authorize?client_id=APP_ID&display=page&redirect_uri&scope=offline,video&response_type=code&v=5.131`
+   `https://oauth.vk.com/authorize?client_id=APP_ID&scope=offline,video,wall,friends&redirect_uri=https%3A%2F%2Foauth.vk.com%2Fblank.html&display=page&response_type=token&revoke=1`
 
    где вместо `APP_ID` подставить ID созданного приложения — его можно увидеть,
    например, в настройках приложения.
 
-   Разрешение `video` необходимо лишь в случае включения параметра [`allow_embedded_video`](#rus-videos),
-   поэтому если эта функциональность не будет использоваться, то можно его убрать.
+   Указанные в `scope` права доступа включают в себя следующие:
+   * `offline` — обязательно для формирования бессрочного ключа доступа,
+   * `video` — для работы параметра [`allow_embedded_video`](#rus-videos),
+   * `wall` и `friends` — для работы параметра [`news_type`](#rus-newsfeed).
+   
+   Если указанные параметры скрипта не будут использоваться, то соответствующие права можно убрать из ссылки.
 
-3. Подтвердить права. В результате в адресной строке будет GET-параметр `code`.
+3. Подтвердить права. В результате в адресной строке будет указан ключ доступа `access_token` —
+   именно это значение и следует использовать в качестве GET-параметра скрипта, генерирующего RSS-ленту.
 
-4. Пройти по ссылке:
-
-   `https://oauth.vk.com/access_token?client_id=APP_ID&client_secret=APP_SECRET&redirect_uri&code=AUTH_CODE`
-
-   где `APP_ID` — ID созданного приложения,
-   `APP_SECRET` — защищенный ключ приложения (можно увидеть в настройках приложения),
-   `AUTH_CODE` — значение параметра `code` из предыдущего шага.
-
-   В результате будет выдан JSON-отклик с искомым `access_token` —
-   именно это значение и следует использовать
-   в качестве GET-параметра скрипта, генерирующего RSS-ленту.
-
-5. При первом использовании токена с IP адреса, отличного от того,
+4. При первом использовании токена с IP адреса, отличного от того,
    с которого получался токен, может выскочить ошибка "API Error 17: Validation required",
    требующая валидации: для этого необходимо пройти по первой ссылке из описания ошибки
    и ввести недостающие цифры номера телефона профиля.
@@ -668,7 +669,8 @@ so URL-encoding can be required for the direct call, e.g.:
 В качестве бонуса в статистике созданного приложения можно смотреть частоту запросов к API.
 
 **Внимание!** Если в настройках безопасности профиля будут завершены сессии приложения,
-то токен станет невалидным — нужно сформировать новый токен, повторив пункты 2-4.
+то все сгенерированные через это приложение токены станут невалидными —
+нужно сформировать новый токен, повторив пункты 2-4.
 
 
 ## Примеры использования:
