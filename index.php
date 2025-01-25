@@ -34,7 +34,11 @@ try {
     die($msg);
 } catch (Exception $exc) {
     header("Content-type: text/plain; charset=utf-8");
-    header("HTTP/1.1 {$exc->getCode()} {$exc->getMessage()}");
+    if ($exc->getCode() >= 400 && $exc->getCode() < 600) {
+        header("HTTP/1.1 {$exc->getCode()} {$exc->getMessage()}");
+    } else {
+        header("HTTP/1.1 500 Internal Server Error");
+    }
     error_log($exc);
-    die($exc->getMessage());
+    die("Error: {$exc->getMessage()}");
 }

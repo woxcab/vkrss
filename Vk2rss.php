@@ -264,7 +264,7 @@ class Vk2rss
             $this->news_type = null;
         } else {
             if ($config['news_type'] !== 'recent' && $config['news_type'] !== 'recommended') {
-                throw new Exception('Bad news type. Allowed values: "recent" or "recommended"');
+                throw new Exception('Bad news type. Allowed values: "recent" or "recommended"', 400);
             }
             $this->news_type = $config['news_type'];
         }
