@@ -121,15 +121,19 @@ class Vk2rss
      */
     protected $news_type;
     /**
+     * @var string   comma separated list of recent news' sources
+     */
+    protected $news_sources;
+    /**
      * @var int   quantity of last posts from the wall (at most 100)
      */
     protected $count;
     /**
-     * @var string   case insensitive regular expression that have to match text of post
+     * @var string   case-insensitive regular expression that have to match text of post
      */
     protected $include;
     /**
-     * @var string   case insensitive regular expression that have not to match text of post
+     * @var string   case-insensitive regular expression that have not to match text of post
      */
     protected $exclude;
     /**
@@ -262,11 +266,27 @@ class Vk2rss
         $this->global_search = empty($config['global_search']) ? null : $config['global_search'];
         if (empty($config['news_type'])) {
             $this->news_type = null;
+            $this->news_sources = null;
         } else {
             if ($config['news_type'] !== 'recent' && $config['news_type'] !== 'recommended') {
                 throw new Exception('Bad news type. Allowed values: "recent" or "recommended"', 400);
             }
             $this->news_type = $config['news_type'];
+            if (!empty($config['news_sources'])) {
+                if ($this->news_type !== 'recent') {
+                    throw new Exception('News sources can be used for recent news only', 400);
+                }
+                if (preg_match("/^(?:friends|groups|pages|following|(?:u|g|list|-)?\d+)(?:,(?:friends|groups|pages|following|(?:u|g|list|-)?\d+))*$/",
+                               $config['news_sources']) !== 1) {
+                    throw new Exception('Bad news sources: each comma separated value must be ' .
+                                        'one of "friends", "groups", "pages", "following",' .
+                                        '"<user_id>", "u<user_id>", "-<group_id>", "g<group_id>" or "list<list_id>"',
+                                        400);
+                }
+                $this->news_sources = $config['news_sources'];
+            } else {
+                $this->news_sources = null;
+            }
         }
         $this->count = empty($config['count']) ? 20 : $config['count'];
         $this->include = isset($config['include']) && $config['include'] !== ''
@@ -847,6 +867,9 @@ class Vk2rss
             case "newsfeed.get":
                 $default_count = 100;
                 $params['filters'] = 'post';
+                if ($this->news_sources) {
+                    $params['source_ids'] = $this->news_sources;
+                }
                 if (!empty($offset)) {
                     $url .= "&start_from=${offset}";
                 }
