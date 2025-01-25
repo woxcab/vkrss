@@ -687,6 +687,8 @@ class Vk2rss
                             $video_text = $attachment->video->description;
                             $restricted = false;
                         }
+
+                        $video_id = "{$attachment->video->owner_id}_{$attachment->video->id}";
                         $video_text = htmlspecialchars($video_text, ENT_NOQUOTES);
                         if (!$this->disable_html) {
                             $video_text = preg_replace(self::TEXTUAL_LINK_PATTERN,
@@ -696,18 +698,25 @@ class Vk2rss
                         $video_description = preg_match(self::EMPTY_STRING_PATTERN, $video_text) === 1 ?
                             array() : preg_split($par_split_regex, $video_text);
                         if (empty($attachment->video->title)) {
-                            $content = array(self::VIDEO_TITLE_PREFIX . ":");
+                            if ($this->disable_html) {
+                                $video_title = self::VIDEO_TITLE_PREFIX . ":";
+                            } else {
+                                $video_title = "<a href='https://vk.com/video{$video_id}'>"
+                                    . self::VIDEO_TITLE_PREFIX . "</a>:";
+                            }
+                        } elseif ($this->disable_html) {
+                            $video_title = self::VIDEO_TITLE_PREFIX . " «{$attachment->video->title}»:";
                         } else {
-                            $content = array(self::VIDEO_TITLE_PREFIX . " «{$attachment->video->title}»:");
+                            $video_title = self::VIDEO_TITLE_PREFIX
+                                . " «<a href='https://vk.com/video{$video_id}'>{$attachment->video->title}</a>»:";
                         }
+                        $content = array($video_title);
                         if ($video_description) {
                             array_unshift($content, $this->attachment_delimiter);
                         }
 
-                        $video_id = "{$attachment->video->owner_id}_{$attachment->video->id}";
                         $playable = !$restricted && !empty($videos[$video_id]) && !empty($videos[$video_id]->player);
                         $video_url = $playable ? $videos[$video_id]->player : "https://vk.com/video{$video_id}";
-
                         if ($this->disable_html) {
                             $content[] = $video_url;
                         } else {
