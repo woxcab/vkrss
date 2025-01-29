@@ -77,7 +77,7 @@ class ProxyDescriptor
             $type = 'http';
         }
         if (!isset(self::$supportedTypes[$type])) {
-            throw new Exception("Proxy type '${type}' does not allowed or incorrect. Allowed types: "
+            throw new Exception("Proxy type '{$type}' does not allowed or incorrect. Allowed types: "
                 . implode(', ', array_keys(self::$supportedTypes)));
         }
         $this->type = $type;
@@ -106,7 +106,7 @@ class ProxyDescriptor
         $this->password = $password;
 
         if (empty($match['address'])) {
-            throw new Exception("Invalid proxy address: '${$address}'");
+            throw new Exception("Invalid proxy address: '{$address}'");
         }
         $this->address = $match['address'];
     }
@@ -262,13 +262,13 @@ class ConnectionWrapper
                 if (isset($proxy)) {
                     $this->proxyType = $proxy->getType();
                     $address = $proxy->getAddress();
-                    $opts['http']['proxy'] = "tcp://${address}";
+                    $opts['http']['proxy'] = "tcp://{$address}";
                     $opts['http']['request_fulluri'] = true;
                     $login = $proxy->getLogin();
                     if (isset($login)) {
                         $password = $proxy->getPassword();
-                        $login_pass = base64_encode("${login}:${password}");
-                        $opts['http']['header'] = "Proxy-Authorization: Basic ${login_pass}\r\nAuthorization: Basic ${login_pass}";
+                        $login_pass = base64_encode("{$login}:{$password}");
+                        $opts['http']['header'] = "Proxy-Authorization: Basic {$login_pass}\r\nAuthorization: Basic {$login_pass}";
                     }
                 }
                 $this->context = stream_context_create($opts);
@@ -284,8 +284,8 @@ class ConnectionWrapper
                     $login = $proxy->getLogin();
                     if (isset($login)) {
                         $password = $proxy->getPassword();
-                        $this->curlOpts[CURLOPT_USERPWD] = "${login}:${password}";
-                        $this->curlOpts[CURLOPT_PROXYUSERPWD] = "${login}:${password}";
+                        $this->curlOpts[CURLOPT_USERPWD] = "{$login}:{$password}";
+                        $this->curlOpts[CURLOPT_PROXYUSERPWD] = "{$login}:{$password}";
                     }
                 }
                 break;
@@ -364,8 +364,8 @@ class ConnectionWrapper
                 $response_code = isset($http_response_header) ? (int)substr($http_response_header[0], 9, 3) : null;
                 if (empty($body)) {
                     $error_msg = error_get_last();
-                    throw new Exception("Cannot retrieve data from URL '${request_url}'"
-                                        . (isset($error_msg) ? ": ${error_msg['message']}" : ''),
+                    throw new Exception("Cannot retrieve data from URL '{$request_url}'"
+                                        . (isset($error_msg) ? ": {$error_msg['message']}" : ''),
                                         (!empty($response_code) && $response_code != 200) ? $response_code : 500);
                 }
                 if ($response_code != 200) {
@@ -378,7 +378,7 @@ class ConnectionWrapper
                 $response = curl_exec($this->curlHandler);
                 if (empty($response)) {
                     $response_code = curl_getinfo($this->curlHandler, CURLINFO_HTTP_CODE);
-                    throw new Exception("Cannot retrieve data from URL '${request_url}': "
+                    throw new Exception("Cannot retrieve data from URL '{$request_url}': "
                                         . curl_error($this->curlHandler),
                                         in_array($response_code, array(0, 200)) ? 500 : $response_code);
                 }
@@ -391,13 +391,13 @@ class ConnectionWrapper
                     $body = $split_response[1];
                 }
                 if (empty($body)) {
-                    throw new Exception("Cannot retrieve data from URL '${request_url}': empty body",
+                    throw new Exception("Cannot retrieve data from URL '{$request_url}': empty body",
                                         503);
                 }
                 list($header, ) = explode("\r\n", $header, 2);
                 $response_code = (int)substr($header, 9, 3);
                 if ($response_code != 200) {
-                    throw new Exception("Cannot retrieve data from URL '${request_url}': " . substr($header, 13)
+                    throw new Exception("Cannot retrieve data from URL '{$request_url}': " . substr($header, 13)
                                         . ": ["  . curl_errno($this->curlHandler) . "] ". curl_error($this->curlHandler),
                                         $response_code == 0 ? 500 : $response_code);
                 }
@@ -434,7 +434,7 @@ class APIError extends Exception {
         switch ($error_response->error->error_code) {
             case 5:
                 if (mb_strpos($message, "invalid session") !== false) {
-                    $message = "Access token is expired (probably by app session terminating). It is necessary to create new token. ${message}";
+                    $message = "Access token is expired (probably by app session terminating). It is necessary to create new token. {$message}";
                 }
                 break;
             case 17:
