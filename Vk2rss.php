@@ -37,7 +37,7 @@ class Vk2rss
     const TEXTUAL_LINK_PATTERN = '@(?:\[((?:https?://)?(?:m\.)?vk\.com/[^|]*)\|([^\]]+)\]|(\s*)\b(https?://\S+?)(?=[.,!?;:»”’"]?(?:\s|$))|(\()(https?://\S+?)(\))|(\([^(]*?)(\s*)\b(\s*https?://\S+?)([.,!?;:»”’"]?\s*\)))@u';
     const TEXTUAL_LINK_REPLACE_PATTERN = '$3$5$8$9<a href=\'$1$4$6${10}\'>$2$4$6${10}</a>$7${11}';
     const TEXTUAL_LINK_REMOVE_PATTERN = '$2$5$8';
-    const EMPTY_STRING_PATTERN = '@^(?:[\s ]*(?:<br/?>|\n)+[\s ]*)*$@u';
+    const EMPTY_STRING_PATTERN = '@^(?:[\s ]*[\r\n]+[\s ]*)*$@u';
 
     /**
      * Default title value when no text in the post
@@ -574,7 +574,7 @@ class Vk2rss
 
     protected function extractDescription(&$description, &$videos, $post, &$profiles, &$groups)
     {
-        $par_split_regex = '@[\s ]*?(?:<br/?>|\n)+[\s ]*?@u'; # PHP 5.2.X: \s does not contain non-break space
+        $par_split_regex = '@[\s ]*?[\r\n]+[\s ]*?@u'; # PHP 5.2.X: \s does not contain non-break space
 
         if (preg_match(self::EMPTY_STRING_PATTERN, $post->text) === 0) {
             $post_text = htmlspecialchars($post->text, ENT_NOQUOTES);
