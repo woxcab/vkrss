@@ -2,7 +2,7 @@
 
 ---
 
-# <a name="eng"></a> Generating RSS Feed for opened or closed wall of user or community (group, public page or event page) on vk.com
+# <a name="eng"></a> Generating RSS Feed for opened or closed wall of user or community (group, public page or event page) on vk.ru
 
 ## Features
 * Generating RSS feed of opened wall: data extraction from different
@@ -78,11 +78,11 @@ parameters are required, another parameters are optional.
 * <a name="eng-global-search"></a> [conditionally required] 
   `global_search` is an arbitrary text search query to lookup on all **opened** walls.
   It uses internal VK algorithms to search posts that're published by wall's **owner**.
-  Search results are the same as on [this search page](https://vk.com/search?c[section]=statuses).
+  Search results are the same as on [this search page](https://vk.ru/search?c[section]=statuses).
 
 * <a name="eng-newsfeed"></a> [conditionally required]
   `news_type` takes one of the values either `recent` (recent news) or `recommended` (VK recommended news).
-  It generates an RSS news feed of the access token's owner that's shown on [this news page](https://vk.com/feed).
+  It generates an RSS news feed of the access token's owner that's shown on [this news page](https://vk.ru/feed).
 
   News feed contains a **walls posts only**, the rest of news are ignored
   (such as new friends of friends, new photos in friends' profiles and so on).
@@ -94,7 +94,7 @@ parameters are required, another parameters are optional.
 * <a name="eng-access-token"></a> [required] `access_token` is
   * either service token that's specified in the app settings
     (you can create your own standalone application
-    [here](https://vk.com/editapp?act=create), app can be off)
+    [here](https://vk.ru/editapp?act=create), app can be off)
 
     Service token allows to fetch only opened for everyone walls.
   * or [user access token with `offline` and optionally `video` permissions](#eng-user-access-token)
@@ -268,22 +268,22 @@ parameters are required, another parameters are optional.
   `proxy_type`, `proxy_login` and `proxy_password` respectively.
 
 ## <a name="eng-user-access-token"></a> How To Get Permanent User Access Token
-[This authorization flow](https://vk.com/dev/authcode_flow_user) is
+[This authorization flow](https://vk.ru/dev/authcode_flow_user) is
 preferred getting user access token for the server side access to the walls.
 
-1. Create your own standalone application [here](https://vk.com/editapp?act=create).
+1. Create your own standalone application [here](https://vk.ru/editapp?act=create).
    Created app can be off after token generation because it does not matter for the API requests.
 
-   **IMPORTANT NOTE**: currently, [newly created apps](https://id.vk.com/business/go)
+   **IMPORTANT NOTE**: currently, [newly created apps](https://id.vk.ru/business/go)
    require passport' data or organisation' data in the developer' dashboard
    in order to generate access tokens with required permissions.
 
-   However, [old apps](https://vk.com/apps?act=manage) still provide the ability
+   However, [old apps](https://vk.ru/apps?act=manage) still provide the ability
    to generate access tokens with required permissions.
 
-2. Authorize necessary account on vk.com and go to the next URL
+2. Authorize necessary account on vk.ru and go to the next URL
 
-   `https://oauth.vk.com/authorize?client_id=APP_ID&scope=offline,video,wall,friends&redirect_uri=https%3A%2F%2Foauth.vk.com%2Fblank.html&display=page&response_type=token&revoke=1`
+   `https://oauth.vk.ru/authorize?client_id=APP_ID&scope=offline,video,wall,friends&redirect_uri=https%3A%2F%2Foauth.vk.ru%2Fblank.html&display=page&response_type=token&revoke=1`
 
    where replace `APP_ID` with application ID that's specified in the app settings.
   
@@ -446,12 +446,12 @@ so URL-encoding can be required for the direct call, e.g.:
   с помощью внутренних алгоритмов ВКонтакте ищутся
   записи со всех открытых стен, опубликованные владельцем профиля пользователя 
   или от имени сообщества. Результаты поиска аналогичны результатам 
-  [на этой поисковой странице](https://vk.com/search?c%5Bsection%5D=statuses).
+  [на этой поисковой странице](https://vk.ru/search?c%5Bsection%5D=statuses).
 
 * <a name="rus-newsfeed"></a> [условно обязательный] `news_type` —
   тип новостной ленты владельца ключа доступа: значение
   либо `recent` (последние новости), либо `recommended` (рекомендуемые новости)
-  — новости, которые отображаются [на странице новостей](https://vk.com/feed)
+  — новости, которые отображаются [на странице новостей](https://vk.ru/feed)
   и только те, что являются **записями** на чьей-либо стене (все прочие новости,
   такие как новые друзья друзей, новые фотографии в профилях друзей и т.п., будут проигнорированы).
 
@@ -463,7 +463,7 @@ so URL-encoding can be required for the direct call, e.g.:
 * <a name="rus-access-token"></a> [обязательный] `access_token` —
    * Либо сервисный ключ доступа, который указан в настройках приложения
      (создать собственное standalone-приложение можно
-     [по этой ссылке](https://vk.com/editapp?act=create), само приложение может быть выключено).
+     [по этой ссылке](https://vk.ru/editapp?act=create), само приложение может быть выключено).
 
      Сервисный ключ доступа дает возможность получать записи только с открытых для всех стен.
    * Либо [ключ доступа пользователя с правами оффлайн-доступа и опционально видео-доступа](#rus-user-access-token).
@@ -674,21 +674,21 @@ so URL-encoding can be required for the direct call, e.g.:
 
 
 ## <a name="rus-user-access-token"></a> Как получить бессрочный токен для доступа к стенам, которые доступны своему профилю
-Для серверного доступа предпочтительна [такая схема](https://vk.com/dev/authcode_flow_user):
+Для серверного доступа предпочтительна [такая схема](https://vk.ru/dev/authcode_flow_user):
 
-1. Создать собственное standalone-приложение [по этой ссылке](https://vk.com/editapp?act=create).
+1. Создать собственное standalone-приложение [по этой ссылке](https://vk.ru/editapp?act=create).
    По желанию после генерации ключей в настройках приложения можно изменить состояние
    на «Приложение отключено» — это никак не помешает генерации RSS-ленты.
 
-   **ВАЖНОЕ**: в настоящее время у [новосозданных приложений](https://id.vk.com/business/go) требуется ввод паспортных данных
+   **ВАЖНОЕ**: в настоящее время у [новосозданных приложений](https://id.vk.ru/business/go) требуется ввод паспортных данных
    или данных об организации в личном кабинете разработчика, чтобы приложение могло получать доступ к нужным правам.
 
-   При этом [старые standalone-приложения](https://vk.com/apps?act=manage) по-прежнему работают
+   При этом [старые standalone-приложения](https://vk.ru/apps?act=manage) по-прежнему работают
    и дают возможность генерировать ключ доступа со всеми нужными правами.
 
 2. После авторизации под нужным профилем пройти по ссылке:
 
-   `https://oauth.vk.com/authorize?client_id=APP_ID&scope=offline,video,wall,friends&redirect_uri=https%3A%2F%2Foauth.vk.com%2Fblank.html&display=page&response_type=token&revoke=1`
+   `https://oauth.vk.ru/authorize?client_id=APP_ID&scope=offline,video,wall,friends&redirect_uri=https%3A%2F%2Foauth.vk.ru%2Fblank.html&display=page&response_type=token&revoke=1`
 
    где вместо `APP_ID` подставить ID созданного приложения — его можно увидеть,
    например, в настройках приложения.

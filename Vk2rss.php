@@ -1,7 +1,7 @@
 <?php
 
 /**
- * @Description: vk.com Wall to RSS Class
+ * @Description: vk.ru Wall to RSS Class
  *
  * Initial creators
  * @author tsarbas
@@ -34,7 +34,7 @@ function exceptions_error_handler($severity, $message, $filename, $lineno) {
 class Vk2rss
 {
     const HASH_TAG_PATTERN = '#([а-яёА-ЯЁa-zA-Z0-9_]+)(?:@[a-zA-Z0-9_]+)?';
-    const TEXTUAL_LINK_PATTERN = '@(?:\[((?:https?://)?(?:m\.)?vk\.com/[^|]*)\|([^\]]+)\]|(\s*)\b(https?://\S+?)(?=[.,!?;:»”’"]?(?:\s|$))|(\()(https?://\S+?)(\))|(\([^(]*?)(\s*)\b(\s*https?://\S+?)([.,!?;:»”’"]?\s*\)))@u';
+    const TEXTUAL_LINK_PATTERN = '@(?:\[((?:https?://)?(?:m\.)?vk\.(?:com|ru)/[^|]*)\|([^\]]+)\]|(\s*)\b(https?://\S+?)(?=[.,!?;:»”’"]?(?:\s|$))|(\()(https?://\S+?)(\))|(\([^(]*?)(\s*)\b(\s*https?://\S+?)([.,!?;:»”’"]?\s*\)))@u';
     const TEXTUAL_LINK_REPLACE_PATTERN = '$3$5$8$9<a href=\'$1$4$6${10}\'>$2$4$6${10}</a>$7${11}';
     const TEXTUAL_LINK_REMOVE_PATTERN = '$2$5$8';
     const EMPTY_STRING_PATTERN = '@^(?:[\s ]*[\r\n]+[\s ]*)*$@u';
@@ -98,7 +98,7 @@ class Vk2rss
     /**
      * URL of API method that returns wall posts
      */
-    const API_BASE_URL = 'https://api.vk.com/method/';
+    const API_BASE_URL = 'https://api.vk.ru/method/';
 
     /**
      * @var stdClass   profile of access token's owner
@@ -337,7 +337,7 @@ class Vk2rss
             $path = $this->domain ?: ($this->owner_id > 0 ? 'id' . $this->owner_id : 'club' . abs($this->owner_id));
         }
 
-        $feed->setLink('https://vk.com/' . $path);
+        $feed->setLink('https://vk.ru/' . $path);
 
         $feed->setChannelElement('language', 'ru-ru');
         $feed->setChannelElement('pubDate', date(DATE_RSS, time()));
@@ -485,8 +485,8 @@ class Vk2rss
                 continue;
             }
             $new_item = $feed->createNewItem();
-            $new_item->setLink("https://vk.com/wall{$post->owner_id}_{$post->id}");
-            $new_item->addElement('guid', "https://vk.com/wall{$post->owner_id}_{$post->id}");
+            $new_item->setLink("https://vk.ru/wall{$post->owner_id}_{$post->id}");
+            $new_item->addElement('guid', "https://vk.ru/wall{$post->owner_id}_{$post->id}");
             $new_item->setDate($post->date);
 
             $description = array();
@@ -498,9 +498,9 @@ class Vk2rss
             foreach ($description as &$paragraph) {
                 // process internal short vk links like [id123|Name]
                 if ($this->disable_html) {
-                    $paragraph = preg_replace('/\[([a-zA-Z0-9_]+)\|([^\]]+)\]/u', '$2 (https://vk.com/$1)', $paragraph);
+                    $paragraph = preg_replace('/\[([a-zA-Z0-9_]+)\|([^\]]+)\]/u', '$2 (https://vk.ru/$1)', $paragraph);
                 } else {
-                    $paragraph = preg_replace('/\[([a-zA-Z0-9_]+)\|([^\]]+)\]/u', '<a href="https://vk.com/$1">$2</a>', $paragraph);
+                    $paragraph = preg_replace('/\[([a-zA-Z0-9_]+)\|([^\]]+)\]/u', '<a href="https://vk.ru/$1">$2</a>', $paragraph);
                 }
             }
 
@@ -515,7 +515,7 @@ class Vk2rss
             }
 
             $new_item->addElement('title', $this->getTitle($description));
-            $new_item->addElement("comments", "https://vk.com/wall{$post->owner_id}_{$post->id}");
+            $new_item->addElement("comments", "https://vk.ru/wall{$post->owner_id}_{$post->id}");
             if (!$this->disable_comments_amount) {
                 $new_item->addElement("slash:comments", $post->comments->count);
             }
@@ -615,7 +615,7 @@ class Vk2rss
                     case 'album': {
                         list($preview_thumb_src, $huge_thumb_src) = $this->getPreviewAndOriginal($attachment->album->thumb->sizes);
                         $album_title = htmlspecialchars($attachment->album->title, ENT_NOQUOTES);
-                        $album_url = "https://vk.com/album" . $attachment->album->owner_id . "_" . $attachment->album->id;
+                        $album_url = "https://vk.ru/album" . $attachment->album->owner_id . "_" . $attachment->album->id;
                         $description[] = $this->attachment_delimiter;
                         if ($this->disable_html) {
                             $description[] = self::ALBUM_TITLE_PREFIX . " «" . $album_title . "»: " . $album_url;
@@ -719,14 +719,14 @@ class Vk2rss
                             if ($this->disable_html) {
                                 $video_title = self::VIDEO_TITLE_PREFIX . ":";
                             } else {
-                                $video_title = "<a href='https://vk.com/video{$video_id}'>"
+                                $video_title = "<a href='https://vk.ru/video{$video_id}'>"
                                     . self::VIDEO_TITLE_PREFIX . "</a>:";
                             }
                         } elseif ($this->disable_html) {
                             $video_title = self::VIDEO_TITLE_PREFIX . " «{$attachment->video->title}»:";
                         } else {
                             $video_title = self::VIDEO_TITLE_PREFIX
-                                . " «<a href='https://vk.com/video{$video_id}'>{$attachment->video->title}</a>»:";
+                                . " «<a href='https://vk.ru/video{$video_id}'>{$attachment->video->title}</a>»:";
                         }
                         $content = array($video_title);
                         if ($video_description) {
@@ -734,7 +734,7 @@ class Vk2rss
                         }
 
                         $playable = !$restricted && !empty($videos[$video_id]) && !empty($videos[$video_id]->player);
-                        $video_url = $playable ? $videos[$video_id]->player : "https://vk.com/video{$video_id}";
+                        $video_url = $playable ? $videos[$video_id]->player : "https://vk.ru/video{$video_id}";
                         if ($this->disable_html) {
                             $content[] = $video_url;
                         } else {
@@ -752,11 +752,11 @@ class Vk2rss
                         if ($this->disable_html) {
                             array_push($description,
                                        $this->attachment_delimiter,
-                                       "{$attachment->page->title}: https://vk.com/page-{$attachment->page->group_id}_{$attachment->page->id}");
+                                       "{$attachment->page->title}: https://vk.ru/page-{$attachment->page->group_id}_{$attachment->page->id}");
                         } else {
                             array_push($description,
                                        $this->attachment_delimiter,
-                                       "<a href='https://vk.com/page-{$attachment->page->group_id}_{$attachment->page->id}'>{$attachment->page->title}</a>");
+                                       "<a href='https://vk.ru/page-{$attachment->page->group_id}_{$attachment->page->id}'>{$attachment->page->title}</a>");
                         }
                         break;
                 }
@@ -769,7 +769,7 @@ class Vk2rss
                     ? $repost->signer_id : $repost->owner_id;
                 if ($author_id < 0) {
                     $author_name = $groups[abs($author_id)]->name;
-                    $author_link = 'https://vk.com/' . $groups[abs($author_id)]->screen_name;
+                    $author_link = 'https://vk.ru/' . $groups[abs($author_id)]->screen_name;
                 } else {
                     $author_name = $profiles[$author_id]->first_name . ' '
                         . $profiles[$author_id]->last_name;
@@ -777,7 +777,7 @@ class Vk2rss
                         . $profiles[$author_id]->last_name_ins;
                     $author_name_gen = $profiles[$author_id]->first_name_gen . ' '
                         . $profiles[$author_id]->last_name_gen;
-                    $author_link = 'https://vk.com/' . $profiles[$author_id]->screen_name;
+                    $author_link = 'https://vk.ru/' . $profiles[$author_id]->screen_name;
                     $author_ins = $this->disable_html
                         ? "$author_name_ins ($author_link)"
                         : "<a href='$author_link'>$author_name_ins</a>";
@@ -796,7 +796,7 @@ class Vk2rss
                 }
                 if (isset($repost->signer_id)) {
                     $repost_owner = $groups[abs($repost->owner_id)]->name;
-                    $repost_owner_url = "https://vk.com/{$groups[abs($repost->owner_id)]->screen_name}";
+                    $repost_owner_url = "https://vk.ru/{$groups[abs($repost->owner_id)]->screen_name}";
                     if ($this->disable_html) {
                         $repost_place = " " .self::COMMUNITY_REPOST_TITLE_ABL . " $repost_owner ($repost_owner_url)";
                     } else {
